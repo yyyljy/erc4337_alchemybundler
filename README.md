@@ -12,7 +12,7 @@
 
 1. SimpleAccountFactory에서 getAddress(address, salt)로 SCA 주소를 미리 확인
 
-   - address는 EOA 지갑주소, salt는 nonce값 (일반적으론 0 넣으면 됨)
+   - address는 EOA 지갑주소, salt는 시드값 (일반적으론 nonce or 0)
 
 2. initCode를 세팅한 UserOp를 작성 후 eth_estimateUserOperationGas 호출
 
@@ -31,11 +31,11 @@
 ### Example Data
 
 #### initCode Sample
-
+```
 ops.sender : 0xf88Af9e8A2FE1453970891aE031Ad77FD6D2CB44
 ops.initCode : 0x9406cc6185a346906296840746125a0e449764545fbfb9cf000000000000000000000000f9ce4d8b7800e6000a370c399ea4a63312926fb10000000000000000000000000000000000000000000000000000000000000000
-
-#### initCode 분석
+```
+#### initCode 구조
 
 SCA Address : 0x9406cc6185a346906296840746125a0e44976454
 Function Call Code : 5fbfb9cf000000000000000000000000
@@ -51,9 +51,54 @@ Function Call Code : 5fbfb9cf000000000000000000000000
 
 ## eth_sendUserOperation과 signature
 
+### UserOperation 구조
 
+!["https://eips.ethereum.org/EIPS/eip-4337"](./readmeAssets/image.png)
+Ref.https://eips.ethereum.org/EIPS/eip-4337
+
+1. initCode
+   - sender가 이미 deploy된 SCA인 경우 `0x`
+2. callData
+   - deploy만 하는 경우 `0x`
+3. gas
+4. signature
+   - 안쓰는 경우에도 자릿수는 채워야 함
+5. paymaster
+   - 직접 지불인 경우 `0x`
+
+### callData 구조
+
+callData Sample
+```
+"0xb61d27f60000000000000000000000006de175459de142b3bcd1b63d3e07f21da48c7c14000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000600000000000000000000000000000000000000000000000000000000000000064368b877200000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000007777271777277650000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+```
+1. SCA의 execute 함수에 targetAddress, value, functionCallData 전달
+2. target Contract에서 functionCallData를 분석하여 함수 호출
+
+### eth_sendUserOperation 호출
+
+1. calldata 작성
+2. nonce값 세팅
+3. eth_estimateUserOperationGas
+4. return된 가스 추정 값 세팅
+5. signature 세팅
+6. userOperation, EntryPoint address를 Bundler에게 전송
+
+## RPC methods
+
+1. eth_sendUserOperation
+2. eth_estimateUserOperationGas
+3. eth_getUserOperationByHash
+4. eth_getUserOperationReceipt
+5. eth_supportedEntryPoints
+6. eth_chainId
 
 ## Trouble Shooting
 
+### deploy SCA (initCode 관련)
 
+### eth_estimateUserOperationGas
 
+### eth_supportedEntryPoints
+
+### eth_sendUserOperation
