@@ -198,6 +198,19 @@ signing transactions is unsupported
 <a href="https://github.com/ethers-io/ethers.js/issues/1869">참고 자료</a>
 </pre>
 
+### 테스트 및 확인 방법
+![Alt text](./readmeAssets/frontInit.png)
+1. .env파일 저장 및 변수 선언
+2. metamask 로그인
+3. fetchEntryPoint 함수 호출 확인 (개발자도구 콘솔)
+4. deploySCA (SCA 최초 생성 시)
+5. balance 관련 오류 발생 시 SCA 주소로 Matic 전송
+6. deploySCA 재시도
+7. inputs에 원하는 메세지 작성
+8. getNonce -> createCallData -> fetchEstimateGas -> signUserOp
+9. 아래 textarea영역에 userOp값 확인 후 sendOp
+10. 콘솔창 userOpHash값 확인 및 [targetAddress Events 확인](https://mumbai.polygonscan.com/address/0x6de175459DE142b3bcd1B63d3E07F21Da48c7c14#events)
+![Alt text](./readmeAssets/userOpSendSuccessResult.png)
 
 ## 참고 자료
 1. [EIP-4337](https://eips.ethereum.org/EIPS/eip-4337)
