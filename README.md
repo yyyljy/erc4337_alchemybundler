@@ -211,6 +211,7 @@ signing transactions is unsupported
 9. 아래 textarea영역에 userOp값 확인 후 sendOp
 10. 콘솔창 userOpHash값 확인 및 [targetAddress Events 확인](https://mumbai.polygonscan.com/address/0x6de175459DE142b3bcd1B63d3E07F21Da48c7c14#events)
 ![Alt text](./readmeAssets/userOpSendSuccessResult.png)
+![Alt text](./readmeAssets/sendMsgResult.png)
 
 ## 참고 자료
 1. [EIP-4337](https://eips.ethereum.org/EIPS/eip-4337)
