@@ -180,22 +180,23 @@ unable to parse transaction
 Account-Abstraction Bundler v.0.6.0. please use "/rpc"
 - 원인 : bundler에게 전송 시 url 값 오류
 - 변경 전
-	http://localhost:3000/
+   http://localhost:3000/
 - 변경 후
-	http://localhost:3000/rpc
+   http://localhost:3000/rpc
 ```
 
 ### hardhat & ethers.js & web3.js 등 개발 관련
-```
+<pre>
 signing transactions is unsupported
 - 원인 : ethers.getSigners() 로 생성한 객체는 signing이 불가능함.
-   https://github.com/ethers-io/ethers.js/issues/1869
 - 변경 전
    accounts = await new ethers.getSigners()
    signer = accounts[0]
 - 변경 후
    signer = await new ethers.Wallet("private key", provider)
-```
+
+<a href="https://github.com/ethers-io/ethers.js/issues/1869">참고 자료</a>
+</pre>
 
 
 ## 참고 자료
