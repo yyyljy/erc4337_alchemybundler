@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { ethers } from "ethers";
 import GetOwnerBTN from "./components/atoms/GetOwnerBTN";
+import { QRCodeCanvas } from 'qrcode.react';
 const { Web3 } = require("web3");
 
 // MSG RECEIVER 0xb1078F5c052f0F8aE22C1FA9E7B6D866EC065809
@@ -43,12 +44,13 @@ function App() {
     if (!web3) setWeb3(new Web3(window.ethereum));
     // console.log(ethers.toNumber(chainId))
     // if (account === ethers.ZeroAddress) getAccounts();
+    window.postMessage({ type: "hashconnect-connect-extension", pairingString: "" }, "*")
   }, [web3, account]);
 
   useEffect(() => {
     if (account !== ethers.ZeroAddress) getChainId();
     if (account !== ethers.ZeroAddress && scaAddress === ethers.ZeroAddress) getSCAAddress();
-  },[account, scaAddress])
+  }, [account, scaAddress])
 
   const getChainId = async () => {
     let currentChain = await window.ethereum.request({ method: "eth_chainId" });
@@ -88,10 +90,10 @@ function App() {
       `https://polygon-mumbai.g.alchemy.com/v2/${process.env.REACT_APP_ALCHEMY_API_KEY}`,
       options
     ).catch((err) => console.error(err));
-    try{
+    try {
       let addr = (await res.json()).result
       setEntryAddress(addr[0])
-    }catch{
+    } catch {
       console.log("Fetch Entry Error")
     }
   };
@@ -105,7 +107,7 @@ function App() {
     );
     const res = await factoryContract.methods.getAddress(account, "0").call();
     if (res) {
-      setUserOp({...userOp, sender: res})
+      setUserOp({ ...userOp, sender: res })
       setSCAaddress(res)
     }
     // console.log(res)
@@ -114,8 +116,8 @@ function App() {
 
   const deploySCA = async () => {
     let sender = scaAddress
-    if(sender === ethers.ZeroAddress) sender = await getSCAAddress();
-    const initcode = process.env.REACT_APP_ACCOUNT_FACTORY_ADDRESS+"5fbfb9cf000000000000000000000000"+account.slice(2)+"0000000000000000000000000000000000000000000000000000000000000000"
+    if (sender === ethers.ZeroAddress) sender = await getSCAAddress();
+    const initcode = process.env.REACT_APP_ACCOUNT_FACTORY_ADDRESS + "5fbfb9cf000000000000000000000000" + account.slice(2) + "0000000000000000000000000000000000000000000000000000000000000000"
     // const params = {
     //   sender: scaAddress,
     //   nonce: "0x0",
@@ -130,7 +132,7 @@ function App() {
     //     "0xfffffffffffffffffffffffffffffff0000000000000000000000000000000007aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa1c",
     //   paymasterAndData: "0x",
     // };
-    const params = {...userOp, sender:sender, nonce:"0x0", initCode:initcode}
+    const params = { ...userOp, sender: sender, nonce: "0x0", initCode: initcode }
     setUserOp(params)
     const res = await fetchEstimateGas(params);
     let op = {
@@ -152,29 +154,29 @@ function App() {
     // console.log("nonce : ", nonce);
     let nn = web3.utils.toHex(nonce);
     setNonce(nn);
-    setUserOp({...userOp, nonce:nn})
+    setUserOp({ ...userOp, nonce: nn })
     return nn;
   };
 
   const createCallData = async () => {
-    // const msgabi = require("./abi/messageContract.json");
+    const msgabi = require("./abi/messageContract.json");
     const accountABI = new ethers.Interface([
       "function execute(address dest, uint256 value, bytes calldata func)",
     ]);
-    const funcFrag = new ethers.Interface([funcABI])
-    const calldata = accountABI.encodeFunctionData("execute", [
-      targetAddr,
-      ethers.ZeroAddress,
-      funcFrag.encodeFunctionData(funcName, ["gogogoPlease",100]),
-    ]);
-    
+    // const funcFrag = new ethers.Interface([funcABI])
     // const calldata = accountABI.encodeFunctionData("execute", [
     //   targetAddr,
     //   ethers.ZeroAddress,
-    //   new ethers.Interface(msgabi).encodeFunctionData(method, [inputs]),
+    //   funcFrag.encodeFunctionData(funcName, ["gogogoPlease", 100]),
     // ]);
+
+    const calldata = accountABI.encodeFunctionData("execute", [
+      targetAddr,
+      ethers.ZeroAddress,
+      new ethers.Interface(msgabi).encodeFunctionData(method, [inputs]),
+    ]);
     setCallData(calldata);
-    setUserOp({...userOp, callData:calldata})
+    setUserOp({ ...userOp, callData: calldata })
     return calldata;
   };
 
@@ -202,10 +204,12 @@ function App() {
     try {
       const gasResult = await response.json();
       if (gasResult.result) {
-        setUserOp({...userOp, 
-          preVerificationGas:gasResult.result.preVerificationGas,
-          verificationGasLimit:gasResult.result.verificationGasLimit,
-          callGasLimit:gasResult.result.callGasLimit})
+        setUserOp({
+          ...userOp,
+          preVerificationGas: gasResult.result.preVerificationGas,
+          verificationGasLimit: gasResult.result.verificationGasLimit,
+          callGasLimit: gasResult.result.callGasLimit
+        })
         setGas(gasResult.result);
         return gasResult.result;
       }
@@ -231,8 +235,17 @@ function App() {
     return Object.assign(Object.assign({}, op), { signature });
   };
 
+  const signTx = async () => {
+    const data = ""
+    const sign = await window.ethereum.request({
+      method: 'personal_sign',
+      params: [data, account],
+    });
+    return sign;
+  };
+
   const sendOp = async (signed) => {
-    let param = signed?signed:userOp
+    let param = signed ? signed : userOp
     console.log(param)
     const res = await fetchAlchemy("eth_sendUserOperation", param)
     console.log(res)
@@ -291,19 +304,19 @@ function App() {
     );
   }
 
-  const fetchAlchemy =  async (method, params) => {
-    if(params.sender === ethers.ZeroAddress) {
+  const fetchAlchemy = async (method, params) => {
+    if (params.sender === ethers.ZeroAddress) {
       let sca = await getSCAAddress()
       setSCAaddress(sca)
-      params = {...params, sender: sca}
+      params = { ...params, sender: sca }
     }
-    if(params.nonce === "0x") {
+    if (params.nonce === "0x") {
       let nc = await getNonce()
       setNonce(nc)
-      params = {...params, nonce: nc}
+      params = { ...params, nonce: nc }
     }
     let ent = ethers.ZeroAddress
-    if(entryAddress === ethers.ZeroAddress){
+    if (entryAddress === ethers.ZeroAddress) {
       ent = await fetchEntryPoint()
       setEntryAddress(ent)
     }
@@ -321,17 +334,17 @@ function App() {
       }),
     }
     fetch(`https://polygon-mumbai.g.alchemy.com/v2/${process.env.REACT_APP_ALCHEMY_API_KEY}`, options)
-    .then((response) => response.json())
-    .then((response) => {
-      console.log("response : ",response)
-      return response
-    })
-    .catch((err) => console.error(err));
+      .then((response) => response.json())
+      .then((response) => {
+        console.log("response : ", response)
+        return response
+      })
+      .catch((err) => console.error(err));
   }
 
   const contractCreationTest = async () => {
     const bytecode = "0x608060405234801561001057600080fd5b50610808806100206000396000f3fe608060405234801561001057600080fd5b506004361061004c5760003560e01c8063368b8772146100515780637a6ce2e11461006d578063ce6d41de1461008b578063d737d0c7146100a9575b600080fd5b61006b600480360381019061006691906103a4565b6100c7565b005b610075610168565b604051610082919061042e565b60405180910390f35b610093610192565b6040516100a091906104c8565b60405180910390f35b6100b1610224565b6040516100be919061042e565b60405180910390f35b80600090816100d69190610700565b5033600160006101000a81548173ffffffffffffffffffffffffffffffffffffffff021916908373ffffffffffffffffffffffffffffffffffffffff1602179055503373ffffffffffffffffffffffffffffffffffffffff167e38ae9f9c9bfeb50a4df18037e2eee236960ec57a3fab6f18af2c5985ca66528260405161015d91906104c8565b60405180910390a250565b6000600160009054906101000a900473ffffffffffffffffffffffffffffffffffffffff16905090565b6060600080546101a190610519565b80601f01602080910402602001604051908101604052809291908181526020018280546101cd90610519565b801561021a5780601f106101ef5761010080835404028352916020019161021a565b820191906000526020600020905b8154815290600101906020018083116101fd57829003601f168201915b5050505050905090565b600160009054906101000a900473ffffffffffffffffffffffffffffffffffffffff1681565b6000604051905090565b600080fd5b600080fd5b600080fd5b600080fd5b6000601f19601f8301169050919050565b7f4e487b7100000000000000000000000000000000000000000000000000000000600052604160045260246000fd5b6102b182610268565b810181811067ffffffffffffffff821117156102d0576102cf610279565b5b80604052505050565b60006102e361024a565b90506102ef82826102a8565b919050565b600067ffffffffffffffff82111561030f5761030e610279565b5b61031882610268565b9050602081019050919050565b82818337600083830152505050565b6000610347610342846102f4565b6102d9565b90508281526020810184848401111561036357610362610263565b5b61036e848285610325565b509392505050565b600082601f83011261038b5761038a61025e565b5b813561039b848260208601610334565b91505092915050565b6000602082840312156103ba576103b9610254565b5b600082013567ffffffffffffffff8111156103d8576103d7610259565b5b6103e484828501610376565b91505092915050565b600073ffffffffffffffffffffffffffffffffffffffff82169050919050565b6000610418826103ed565b9050919050565b6104288161040d565b82525050565b6000602082019050610443600083018461041f565b92915050565b600081519050919050565b600082825260208201905092915050565b60005b83811015610483578082015181840152602081019050610468565b60008484015250505050565b600061049a82610449565b6104a48185610454565b93506104b4818560208601610465565b6104bd81610268565b840191505092915050565b600060208201905081810360008301526104e2818461048f565b905092915050565b7f4e487b7100000000000000000000000000000000000000000000000000000000600052602260045260246000fd5b6000600282049050600182168061053157607f821691505b602082108103610544576105436104ea565b5b50919050565b60008190508160005260206000209050919050565b60006020601f8301049050919050565b600082821b905092915050565b6000600883026105ac7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff8261056f565b6105b6868361056f565b95508019841693508086168417925050509392505050565b6000819050919050565b6000819050919050565b60006105fd6105f86105f3846105ce565b6105d8565b6105ce565b9050919050565b6000819050919050565b610617836105e2565b61062b61062382610604565b84845461057c565b825550505050565b600090565b610640610633565b61064b81848461060e565b505050565b5b8181101561066f57610664600082610638565b600181019050610651565b5050565b601f8211156106b4576106858161054a565b61068e8461055f565b8101602085101561069d578190505b6106b16106a98561055f565b830182610650565b50505b505050565b600082821c905092915050565b60006106d7600019846008026106b9565b1980831691505092915050565b60006106f083836106c6565b9150826002028217905092915050565b61070982610449565b67ffffffffffffffff81111561072257610721610279565b5b61072c8254610519565b610737828285610673565b600060209050601f83116001811461076a5760008415610758578287015190505b61076285826106e4565b8655506107ca565b601f1984166107788661054a565b60005b828110156107a05784890151825560018201915060208501945060208101905061077b565b868310156107bd57848901516107b9601f8916826106c6565b8355505b6001600288020188555050505b50505050505056fea2646970667358221220eb01bd1b5972f53077bf5bd71163ee86ec71994b786f9832a578506b7c49e4a564736f6c63430008140033"
-    let param = {...userOp, callData: bytecode}
+    let param = { ...userOp, callData: bytecode }
     setUserOp(param)
     // await fetchEstimateGas(param)
     // return
@@ -343,8 +356,8 @@ function App() {
       <header className="App-header">
         <p>
           <button onClick={getAccounts}>지갑연결</button>
-          <button onClick={fetchEntryPoint}>fetchEntryPoint</button>
-          <button onClick={getNonce}>getNonce</button>
+          <button onClick={fetchEntryPoint}>EntryPoint CA 조회</button>
+          <button onClick={getNonce}>AA Nonce값 조회</button>
         </p>
         <label>{`ChainId : ${chainId}`}</label>
         <br />
@@ -359,13 +372,13 @@ function App() {
         <label>{`gas : ${gas ? JSON.stringify(gas) : ""}`}</label>
         <br />
         <p>
-          <button onClick={deploySCA}>deploySCA</button>
+          <button onClick={deploySCA}>AA 생성</button>
         </p>
         <p>
-          <button onClick={getNonce}>getNonce</button>
+          <button onClick={getNonce}>AA Nonce값 조회</button>
         </p>
         <p>
-          <label>targetContractAddress</label>
+          <label>호출할 Contract Address</label>
           <br />
           <input
             name="targetContractAddress"
@@ -375,7 +388,8 @@ function App() {
             value={targetAddr}
           ></input>
           <br />
-          <label>method</label>
+          <br />
+          <label>호출할 함수명</label>
           <br />
           <input
             name="method"
@@ -385,6 +399,7 @@ function App() {
             }}
           ></input>
           <br />
+          <br />
           <label>inputs</label>
           <br />
           <input
@@ -393,15 +408,17 @@ function App() {
               setInputs(e.target.value);
             }}
           ></input>
-          <br />
           <button
             onClick={() => {
               createCallData();
             }}
           >
-            createCallData
+            callData 생성
           </button>
-          <input value={callData} name="callData" onChange={(e)=>{
+          <br />
+          <label>callData</label>
+          <br />
+          <input value={callData} name="callData" onChange={(e) => {
             setCallData(e.target.value)
           }}></input>
         </p>
@@ -411,7 +428,7 @@ function App() {
               fetchEstimateGas(userOp);
             }}
           >
-            fetchEstimateGas
+            Gas Fee Estimate
           </button>
         </p>
         <p>
@@ -420,7 +437,7 @@ function App() {
               signUserOp(userOp);
             }}
           >
-            signUserOp
+            UserOp 서명
           </button>
         </p>
         <p>
@@ -429,39 +446,42 @@ function App() {
               sendOp();
             }}
           >
-            sendOp
+            UserOp 전송
           </button>
         </p>
-        <GetOwnerBTN scaAddress={scaAddress}/>
+        <GetOwnerBTN scaAddress={scaAddress} />
         <p>
           <button onClick={contractCreationTest}>TestBTN</button>
         </p>
+        <p>
+          <button onClick={signTx}>SIGN!!!</button>
+        </p>
         <br />
-        <textarea onChange={(e)=>{setUserOp(e.target.value)}} value={JSON.stringify(userOp,null, 2)}/>
+        <textarea onChange={(e) => { setUserOp(e.target.value) }} value={JSON.stringify(userOp, null, 2)} />
         <br />
         <label>function name</label>
-          <br />
-          <input
-            name="inputs"
-            onChange={(e) => {
-              setFuncName(e.target.value);
-              setFuncABI(`function ${e.target.value}(${funcInput})`)
-            }}
-          ></input>
-          <br />
-          <label>input types & names</label>
-          <br />
-          <input
-            name="inputs"
-            onChange={(e) => {
-              setFuncInput(e.target.value);
-              setFuncABI(`function ${funcName}(${e.target.value})`)
-            }}
-          ></input>
-          <br/>
-          <label>{`function ${funcName}(${funcInput})`}</label>
+        <br />
+        <input
+          name="inputs"
+          onChange={(e) => {
+            setFuncName(e.target.value);
+            setFuncABI(`function ${e.target.value}(${funcInput})`)
+          }}
+        ></input>
+        <br />
+        <label>input types & names</label>
+        <br />
+        <input
+          name="inputs"
+          onChange={(e) => {
+            setFuncInput(e.target.value);
+            setFuncABI(`function ${funcName}(${e.target.value})`)
+          }}
+        ></input>
+        <br />
+        <label>{`function ${funcName}(${funcInput})`}</label>
       </header>
-    </div>
+    </div >
   );
 }
 
