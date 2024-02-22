@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { ethers } from "ethers";
 import GetOwnerBTN from "./components/atoms/GetOwnerBTN";
-import { QRCodeCanvas } from 'qrcode.react';
+import GetMsgBTN from "./components/atoms/GetMsgBTN";
 const { Web3 } = require("web3");
 
 // MSG RECEIVER 0xb1078F5c052f0F8aE22C1FA9E7B6D866EC065809
@@ -32,20 +32,41 @@ function App() {
       "0xfffffffffffffffffffffffffffffff0000000000000000000000000000000007aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa1c",
     paymasterAndData: "0x",
   });
-  const [nonce, setNonce] = useState();
+  const [nonce, setNonce] = useState(`-`);
   const [gas, setGas] = useState();
-  const [chainId, setChainId] = useState();
-  // const signer = new ethers.Wallet(process.env.REACT_APP_USER_PRIVATE_KEY, web3.provider);
+  const [chainId, setChainId] = useState(`-`);
   const [funcName, setFuncName] = useState();
   const [funcInput, setFuncInput] = useState();
   const [funcABI, setFuncABI] = useState();
 
   useEffect(() => {
-    if (!web3) setWeb3(new Web3(window.ethereum));
-    // console.log(ethers.toNumber(chainId))
-    // if (account === ethers.ZeroAddress) getAccounts();
-    window.postMessage({ type: "hashconnect-connect-extension", pairingString: "" }, "*")
-  }, [web3, account]);
+    try {
+      if (window.ethereum) {
+        setWeb3(new Web3(window.ethereum));
+        window.ethereum.on('accountsChanged', (account) => {
+          setAccount(account[0]);
+          setSCAaddress(ethers.ZeroAddress);
+          setNonce(`-`);
+          setUserOp({
+            sender: ethers.ZeroAddress,
+            nonce: "0x",
+            initCode: "0x",
+            callData: "0x",
+            callGasLimit: "0xffffff",
+            verificationGasLimit: "0xffffff",
+            preVerificationGas: "0xffffff",
+            maxFeePerGas: "0xaffffffff",
+            maxPriorityFeePerGas: "0xaffffffff",
+            signature:
+              "0xfffffffffffffffffffffffffffffff0000000000000000000000000000000007aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa1c",
+            paymasterAndData: "0x",
+          })
+        });
+      }
+    } catch (error) {
+      console.log(error);
+    }
+  }, []);
 
   useEffect(() => {
     if (account !== ethers.ZeroAddress) getChainId();
@@ -163,12 +184,6 @@ function App() {
     const accountABI = new ethers.Interface([
       "function execute(address dest, uint256 value, bytes calldata func)",
     ]);
-    // const funcFrag = new ethers.Interface([funcABI])
-    // const calldata = accountABI.encodeFunctionData("execute", [
-    //   targetAddr,
-    //   ethers.ZeroAddress,
-    //   funcFrag.encodeFunctionData(funcName, ["gogogoPlease", 100]),
-    // ]);
 
     const calldata = accountABI.encodeFunctionData("execute", [
       targetAddr,
@@ -178,6 +193,64 @@ function App() {
     setCallData(calldata);
     setUserOp({ ...userOp, callData: calldata })
     return calldata;
+  };
+
+  const signCustomCallData = async () => {
+    try {
+      if (!funcABI) throw new Error(`function ABI ERROR`);
+
+      let cUserOp = userOp;
+      const abi = require("./abi/entrypoint.json");
+      const entryContract = new web3.eth.Contract(abi, entryAddress);
+      const nonce = await entryContract.methods.getNonce(scaAddress, "0").call();
+      cUserOp.nonce = web3.utils.toHex(nonce);
+
+      const accountABI = new ethers.Interface([
+        "function execute(address dest, uint256 value, bytes calldata func)",
+      ]);
+      const customABI2 = new ethers.Interface([funcABI]).encodeFunctionData(funcName, [inputs]);
+
+      cUserOp.callData = accountABI.encodeFunctionData("execute", [
+        targetAddr,
+        ethers.ZeroAddress,
+        customABI2,
+      ]);
+
+      const options = {
+        method: "POST",
+        headers: {
+          accept: "application/json",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          id: 1,
+          jsonrpc: "2.0",
+          method: "eth_estimateUserOperationGas",
+          params: [cUserOp, entryAddress],
+        }),
+      };
+      await fetch(
+        `https://polygon-mumbai.g.alchemy.com/v2/${process.env.REACT_APP_ALCHEMY_API_KEY}`,
+        options
+      ).then(async (result) => {
+        const gasResult = await result.json();
+        console.log(`result:${JSON.stringify(gasResult)}`);
+        cUserOp = {
+          ...cUserOp,
+          preVerificationGas: gasResult.result.preVerificationGas,
+          verificationGasLimit: gasResult.result.verificationGasLimit,
+          callGasLimit: gasResult.result.callGasLimit
+        }
+      });
+
+      const userOpHash = await getUserOpHash(cUserOp);
+      cUserOp.signature = await signUserOpHash(userOpHash);
+      sendOp(cUserOp);
+      console.log(cUserOp);
+
+    } catch (error) {
+      console.log(error);
+    }
   };
 
   const fetchEstimateGas = async (params) => {
@@ -357,15 +430,15 @@ function App() {
         <p>
           <button onClick={getAccounts}>지갑연결</button>
           <button onClick={fetchEntryPoint}>EntryPoint CA 조회</button>
-          <button onClick={getNonce}>AA Nonce값 조회</button>
+          <button onClick={getNonce}>Contract Nonce값 조회</button>
         </p>
         <label>{`ChainId : ${chainId}`}</label>
         <br />
-        <label>{`Account : ${account}`}</label>
+        <label>{`연결된 지갑주소 : ${account}`}</label>
         <br />
-        <label>{`SCA : ${scaAddress}`}</label>
+        <label>{`매칭되는 SCA 주소 : ${scaAddress}`}</label>
         <br />
-        <label>{`EntryPointAddress : ${entryAddress}`}</label>
+        <label>{`EntryPoint Address : ${entryAddress}`}</label>
         <br />
         <label>{`nonce : ${nonce}`}</label>
         <br />
@@ -450,6 +523,8 @@ function App() {
           </button>
         </p>
         <GetOwnerBTN scaAddress={scaAddress} />
+        <GetMsgBTN contractAddress={targetAddr} />
+
         <p>
           <button onClick={contractCreationTest}>TestBTN</button>
         </p>
@@ -480,6 +555,28 @@ function App() {
         ></input>
         <br />
         <label>{`function ${funcName}(${funcInput})`}</label>
+        <br />
+        <label>inputs</label>
+        <br />
+        <input
+          name="inputs"
+          onChange={(e) => {
+            setInputs(e.target.value);
+          }}
+        ></input>
+        <button
+          onClick={() => {
+            signCustomCallData();
+          }}
+        >
+          Sign & Send Custom callData
+        </button>
+        <br />
+        <label>Custom callData</label>
+        <br />
+        <input value={callData} name="callData" onChange={(e) => {
+          setCallData(e.target.value)
+        }}></input>
       </header>
     </div >
   );
