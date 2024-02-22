@@ -1,4 +1,6 @@
+import { Button } from "@chakra-ui/react";
 import { React } from "react";
+import BTN from "./Btn";
 const { Web3 } = require("web3")
 
 export default function GetMsgBTN({ contractAddress }) {
@@ -11,7 +13,7 @@ export default function GetMsgBTN({ contractAddress }) {
 
   return (
     <div>
-      <button onClick={getMsg}>get Msg</button>
+      <BTN onClickFunc={getMsg} name="get Msg" />
     </div>
   );
 }

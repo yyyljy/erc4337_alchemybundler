@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { ethers } from "ethers";
 import GetOwnerBTN from "./components/atoms/GetOwnerBTN";
 import GetMsgBTN from "./components/atoms/GetMsgBTN";
+import { Box, Button, Flex, Input, TagLabel, Text, Textarea } from "@chakra-ui/react";
+import BTN from "./components/atoms/Btn";
 const { Web3 } = require("web3");
 
 // MSG RECEIVER 0xb1078F5c052f0F8aE22C1FA9E7B6D866EC065809
@@ -16,7 +18,7 @@ function App() {
   );
   const [scaAddress, setSCAaddress] = useState(ethers.ZeroAddress);
   const [method, setMethod] = useState("setMessage");
-  const [inputs, setInputs] = useState([`testMessage`]);
+  const [Inputs, setInputs] = useState([`testMessage`]);
   const [callData, setCallData] = useState("");
   const [userOp, setUserOp] = useState({
     sender: ethers.ZeroAddress,
@@ -172,7 +174,6 @@ function App() {
     const abi = require("./abi/entrypoint.json");
     const entryContract = new web3.eth.Contract(abi, entryAddress);
     const nonce = await entryContract.methods.getNonce(scaAddress, "0").call();
-    // console.log("nonce : ", nonce);
     let nn = web3.utils.toHex(nonce);
     setNonce(nn);
     setUserOp({ ...userOp, nonce: nn })
@@ -188,7 +189,7 @@ function App() {
     const calldata = accountABI.encodeFunctionData("execute", [
       targetAddr,
       ethers.ZeroAddress,
-      new ethers.Interface(msgabi).encodeFunctionData(method, [inputs]),
+      new ethers.Interface(msgabi).encodeFunctionData(method, [Inputs]),
     ]);
     setCallData(calldata);
     setUserOp({ ...userOp, callData: calldata })
@@ -208,7 +209,7 @@ function App() {
       const accountABI = new ethers.Interface([
         "function execute(address dest, uint256 value, bytes calldata func)",
       ]);
-      const customABI2 = new ethers.Interface([funcABI]).encodeFunctionData(funcName, [inputs]);
+      const customABI2 = new ethers.Interface([funcABI]).encodeFunctionData(funcName, [Inputs]);
 
       cUserOp.callData = accountABI.encodeFunctionData("execute", [
         targetAddr,
@@ -254,9 +255,6 @@ function App() {
   };
 
   const fetchEstimateGas = async (params) => {
-    // await getNonce();
-    // params = { ...params, nonce: nonce };
-    // console.log(params)
     const options = {
       method: "POST",
       headers: {
@@ -290,15 +288,6 @@ function App() {
     } catch {
       return false;
     }
-    // {
-    //   "jsonrpc": "2.0",
-    //   "id": 1,
-    //   "result": {
-    //     "preVerificationGas": "0xab84",
-    //     "verificationGasLimit": "0x14347",
-    //     "callGasLimit": "0x238c"
-    //   }
-    // }
   };
 
   const signUserOp = async (op) => {
@@ -426,158 +415,129 @@ function App() {
 
   return (
     <div className="App">
-      <header className="App-header">
-        <p>
-          <button onClick={getAccounts}>지갑연결</button>
-          <button onClick={fetchEntryPoint}>EntryPoint CA 조회</button>
-          <button onClick={getNonce}>Contract Nonce값 조회</button>
-        </p>
+      <Flex flexDirection={"column"} gap={"5px"}>
+        <Flex width={"600px"} flexDirection={"row"} gap={"10px"}>
+          <BTN onClickFunc={getAccounts} name={"지갑연결"} />
+          <BTN onClickFunc={fetchEntryPoint} name="EntryPoint CA 조회" />
+        </Flex>
         <label>{`ChainId : ${chainId}`}</label>
-        <br />
         <label>{`연결된 지갑주소 : ${account}`}</label>
-        <br />
         <label>{`매칭되는 SCA 주소 : ${scaAddress}`}</label>
-        <br />
         <label>{`EntryPoint Address : ${entryAddress}`}</label>
-        <br />
-        <label>{`nonce : ${nonce}`}</label>
-        <br />
-        <label>{`gas : ${gas ? JSON.stringify(gas) : ""}`}</label>
-        <br />
-        <p>
-          <button onClick={deploySCA}>AA 생성</button>
-        </p>
-        <p>
-          <button onClick={getNonce}>AA Nonce값 조회</button>
-        </p>
-        <p>
-          <label>호출할 Contract Address</label>
-          <br />
-          <input
-            name="targetContractAddress"
-            onChange={(e) => {
-              setTargetAddr(e.target.value);
-            }}
-            value={targetAddr}
-          ></input>
-          <br />
-          <br />
-          <label>호출할 함수명</label>
-          <br />
-          <input
-            name="method"
-            value={method}
-            onChange={(e) => {
-              setMethod(e.target.value);
-            }}
-          ></input>
-          <br />
-          <br />
-          <label>inputs</label>
-          <br />
-          <input
-            name="inputs"
-            onChange={(e) => {
-              setInputs(e.target.value);
-            }}
-          ></input>
-          <button
-            onClick={() => {
-              createCallData();
-            }}
-          >
-            callData 생성
-          </button>
-          <br />
-          <label>callData</label>
-          <br />
-          <input value={callData} name="callData" onChange={(e) => {
-            setCallData(e.target.value)
-          }}></input>
-        </p>
-        <p>
-          <button
-            onClick={() => {
-              fetchEstimateGas(userOp);
-            }}
-          >
-            Gas Fee Estimate
-          </button>
-        </p>
-        <p>
-          <button
-            onClick={() => {
-              signUserOp(userOp);
-            }}
-          >
-            UserOp 서명
-          </button>
-        </p>
-        <p>
-          <button
-            onClick={() => {
-              sendOp();
-            }}
-          >
-            UserOp 전송
-          </button>
-        </p>
-        <GetOwnerBTN scaAddress={scaAddress} />
-        <GetMsgBTN contractAddress={targetAddr} />
 
-        <p>
-          <button onClick={contractCreationTest}>TestBTN</button>
-        </p>
-        <p>
-          <button onClick={signTx}>SIGN!!!</button>
-        </p>
-        <br />
-        <textarea onChange={(e) => { setUserOp(e.target.value) }} value={JSON.stringify(userOp, null, 2)} />
-        <br />
-        <label>function name</label>
-        <br />
-        <input
-          name="inputs"
+        <BTN onClickFunc={deploySCA} name="SCA 배포" />
+
+        <label>호출할 Contract Address</label>
+        <Input
+          name="targetContractAddress" width={"500px"}
           onChange={(e) => {
-            setFuncName(e.target.value);
-            setFuncABI(`function ${e.target.value}(${funcInput})`)
+            setTargetAddr(e.target.value);
           }}
-        ></input>
-        <br />
-        <label>input types & names</label>
-        <br />
-        <input
-          name="inputs"
+          value={targetAddr}
+        ></Input>
+
+        <label>호출할 함수명</label>
+        <Input
+          name="method"
+          value={method} width={"500px"}
           onChange={(e) => {
-            setFuncInput(e.target.value);
-            setFuncABI(`function ${funcName}(${e.target.value})`)
+            setMethod(e.target.value);
           }}
-        ></input>
-        <br />
-        <label>{`function ${funcName}(${funcInput})`}</label>
-        <br />
-        <label>inputs</label>
-        <br />
-        <input
-          name="inputs"
+        ></Input>
+
+        <label>Inputs</label>
+        <Input
+          name="Inputs" width={"500px"}
           onChange={(e) => {
             setInputs(e.target.value);
           }}
-        ></input>
-        <button
-          onClick={() => {
-            signCustomCallData();
-          }}
-        >
-          Sign & Send Custom callData
-        </button>
-        <br />
-        <label>Custom callData</label>
-        <br />
-        <input value={callData} name="callData" onChange={(e) => {
-          setCallData(e.target.value)
-        }}></input>
-      </header>
+        ></Input>
+
+
+        <Flex gap={"10px"}>
+          <BTN onClickFunc={createCallData} name="callData 생성" />
+          <Text width={"500px"} >{`callData Length: ${callData?.length}`}</Text>
+        </Flex>
+
+        <Flex gap={"10px"}>
+          <BTN onClickFunc={getNonce} name="SCA Nonce 조회" />
+          <label>{`nonce : ${nonce}`}</label>
+        </Flex>
+
+        <Flex gap={"10px"}>
+          <BTN onClickFunc={() => { fetchEstimateGas(userOp); }} name="Gas Fee Estimate" />
+          <label>{`gas : ${gas ? JSON.stringify(gas) : ""}`}</label>
+        </Flex>
+
+        <BTN onClickFunc={() => { signUserOp(userOp) }} name="UserOp 서명" />
+
+        <Textarea width={"600px"} height={"300px"} onChange={(e) => { setUserOp(e.target.value) }} value={JSON.stringify(userOp, null, 2)} />
+        <BTN onClickFunc={sendOp} name="UserOp 전송" />
+
+        <Box width={"500px"} alignSelf={"flex-start"} borderWidth='5px' borderRadius='lg' padding={"5px"} borderColor={"blue"}>
+          <Flex flexDirection={"column"} alignItems={"center"} gap={"5px"}>
+            <Text>Contract Call</Text>
+            <Flex gap={"10px"}>
+              <GetOwnerBTN scaAddress={scaAddress} />
+              <GetMsgBTN contractAddress={targetAddr} />
+            </Flex>
+          </Flex>
+        </Box>
+
+        <Box width={"500px"} alignSelf={"flex-start"} borderWidth='5px' borderRadius='lg' padding={"5px"} borderColor={"pink"}>
+          <Flex flexDirection={"column"} alignItems={"center"} gap={"5px"}>
+            <Text>커스텀 콜 데이터</Text>
+            <Flex gap={"10px"} flexDirection={"column"} alignSelf={"flex-start"}>
+              <label>function name</label>
+              <Input
+                name="Inputs"
+                onChange={(e) => {
+                  setFuncName(e.target.value);
+                  setFuncABI(`function ${e.target.value}(${funcInput})`)
+                }}
+              ></Input>
+
+              <label>Input types & names</label>
+
+              <Input
+                name="Inputs"
+                onChange={(e) => {
+                  setFuncInput(e.target.value);
+                  setFuncABI(`function ${funcName}(${e.target.value})`)
+                }}
+              ></Input>
+
+              <label>{`function ${funcName}(${funcInput})`}</label>
+              <label>Inputs</label>
+              <Input
+                name="Inputs"
+                onChange={(e) => {
+                  setInputs(e.target.value);
+                }}
+              ></Input>
+              <BTN onClickFunc={() => { signCustomCallData(); }} name="Sign & Send" />
+
+              <label>Custom callData</label>
+
+              <Input value={callData} name="callData" onChange={(e) => {
+                setCallData(e.target.value)
+              }}></Input>
+            </Flex>
+          </Flex>
+        </Box>
+
+
+        <Box width={"500px"} alignSelf={"flex-start"} borderWidth='5px' borderRadius='lg' padding={"5px"} borderColor={"greenyellow"}>
+          <Flex flexDirection={"column"} alignItems={"center"} gap={"5px"}>
+            <Text>테스트 기능</Text>
+            <Flex gap={"10px"}>
+              <BTN onClick={contractCreationTest} name="TestBTN" />
+              <BTN onClick={signTx} name="SIGN!!!" />
+            </Flex>
+          </Flex>
+        </Box>
+
+      </Flex >
     </div >
   );
 }
