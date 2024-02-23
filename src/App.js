@@ -2,10 +2,13 @@ import { useEffect, useState } from "react";
 import { ethers } from "ethers";
 import GetOwnerBTN from "./components/atoms/GetOwnerBTN";
 import GetMsgBTN from "./components/atoms/GetMsgBTN";
-import { Box, Button, Flex, Input, TagLabel, Text, Textarea } from "@chakra-ui/react";
+import {
+  Box, Flex, Input, Text, Textarea, Table, Tbody, Tr, Td, TableContainer, FormControl, FormLabel, Switch, Divider,
+} from "@chakra-ui/react";
 import BTN from "./components/atoms/Btn";
+import paymasterArtifact from "../src/abi/LegacyTokenPaymaster.json";
 const { Web3 } = require("web3");
-
+const paymasterAddress = "0x236Cdc733C3c3552487B3deCD80D4e50E1cB68A7";
 // MSG RECEIVER 0xb1078F5c052f0F8aE22C1FA9E7B6D866EC065809
 
 function App() {
@@ -40,6 +43,10 @@ function App() {
   const [funcName, setFuncName] = useState();
   const [funcInput, setFuncInput] = useState();
   const [funcABI, setFuncABI] = useState();
+  const [usePaymaster, setUsePaymaster] = useState(false);
+  const [paymasterAndData, setPaymasterAndData] = useState("");
+  const [balOfERC20, setbalOfERC20] = useState(0);
+
 
   useEffect(() => {
     try {
@@ -255,25 +262,26 @@ function App() {
   };
 
   const fetchEstimateGas = async (params) => {
-    const options = {
-      method: "POST",
-      headers: {
-        accept: "application/json",
-        "content-type": "application/json",
-      },
-      body: JSON.stringify({
-        id: 1,
-        jsonrpc: "2.0",
-        method: "eth_estimateUserOperationGas",
-        params: [params, entryAddress],
-      }),
-    };
-    const response = await fetch(
-      `https://polygon-mumbai.g.alchemy.com/v2/${process.env.REACT_APP_ALCHEMY_API_KEY}`,
-      options
-    );
     try {
+      const options = {
+        method: "POST",
+        headers: {
+          accept: "application/json",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          id: 1,
+          jsonrpc: "2.0",
+          method: "eth_estimateUserOperationGas",
+          params: [params, entryAddress],
+        }),
+      };
+      const response = await fetch(
+        `https://polygon-mumbai.g.alchemy.com/v2/${process.env.REACT_APP_ALCHEMY_API_KEY}`,
+        options
+      );
       const gasResult = await response.json();
+      console.log(gasResult);
       if (gasResult.result) {
         setUserOp({
           ...userOp,
@@ -285,7 +293,8 @@ function App() {
         return gasResult.result;
       }
       return false;
-    } catch {
+    } catch (error) {
+      console.log(error);
       return false;
     }
   };
@@ -398,10 +407,11 @@ function App() {
     fetch(`https://polygon-mumbai.g.alchemy.com/v2/${process.env.REACT_APP_ALCHEMY_API_KEY}`, options)
       .then((response) => response.json())
       .then((response) => {
+        if (response?.error) alert(response.error.message);
         console.log("response : ", response)
         return response
       })
-      .catch((err) => console.error(err));
+      .catch((err) => { alert(err); console.error(err) });
   }
 
   const contractCreationTest = async () => {
@@ -413,19 +423,97 @@ function App() {
     // const res = await fetchAlchemy("eth_sendUserOperation", param)
   }
 
+  function generatePaymasterAndData(tokenPrice) {
+    let pd;
+    if (tokenPrice != null) {
+      tokenPrice = Buffer.from(tokenPrice);
+      pd = ethers.hexlify(
+        ethers.concat(
+          [paymasterAddress, ethers.zeroPadValue(ethers.hexlify(tokenPrice), 32)]
+        )
+      );
+    } else {
+      pd = ethers.hexlify(ethers.concat([paymasterAddress]));
+    }
+    setUserOp({ ...userOp, paymasterAndData: pd })
+    setPaymasterAndData(pd);
+    return pd;
+  }
+
+  async function mintPaymasterErc20(amount) {
+    try {
+      const provider = new ethers.BrowserProvider(window.ethereum);
+      const signer = await provider.getSigner();
+      const paymaster = new ethers.Contract(paymasterAddress, paymasterArtifact.abi, signer);
+      const result = await paymaster.mintTokens(scaAddress, amount);
+      console.log(result);
+    } catch (error) {
+      console.log(error);
+    }
+  }
+
+  async function getBalanceOfPaymasterErc20() {
+    try {
+      if (scaAddress === ethers.ZeroAddress) alert("SCA ADDRESS is empty");
+      const provider = new ethers.BrowserProvider(window.ethereum);
+      const signer = await provider.getSigner();
+      const paymaster = new ethers.Contract(paymasterAddress, paymasterArtifact.abi, signer);
+      const result = await paymaster.balanceOf(scaAddress);
+      console.log(Number(result));
+      setbalOfERC20(Number(result));
+    } catch (error) {
+      console.log(error);
+    }
+  }
+
+  async function depositPaymaster() {
+    const provider = new ethers.BrowserProvider(window.ethereum);
+    const signer = await provider.getSigner();
+    const paymaster = new ethers.Contract(paymasterAddress, paymasterArtifact.abi, signer);
+    const result = await paymaster.deposit({ value: ethers.parseEther("0.5") });
+    console.log(result);
+  }
+
+  async function addStake() {
+    const provider = new ethers.BrowserProvider(window.ethereum);
+    const signer = await provider.getSigner();
+    const paymaster = new ethers.Contract(paymasterAddress, paymasterArtifact.abi, signer);
+    const result = await paymaster.addStake(84600 * 10, { value: ethers.parseEther('0.5') });
+    console.log(result);
+  }
+
   return (
     <div className="App">
       <Flex flexDirection={"column"} gap={"5px"}>
         <Flex width={"600px"} flexDirection={"row"} gap={"10px"}>
           <BTN onClickFunc={getAccounts} name={"지갑연결"} />
           <BTN onClickFunc={fetchEntryPoint} name="EntryPoint CA 조회" />
+          <BTN onClickFunc={deploySCA} name="SCA 배포" />
         </Flex>
-        <label>{`ChainId : ${chainId}`}</label>
-        <label>{`연결된 지갑주소 : ${account}`}</label>
-        <label>{`매칭되는 SCA 주소 : ${scaAddress}`}</label>
-        <label>{`EntryPoint Address : ${entryAddress}`}</label>
 
-        <BTN onClickFunc={deploySCA} name="SCA 배포" />
+        <Text>Information Table</Text>
+        <TableContainer width={"700px"} borderWidth='5px' borderRadius='lg' padding={"5px"} borderColor={"skyblue"}>
+          <Table variant='simple'>
+            <Tbody>
+              <Tr>
+                <Td>ChainId</Td>
+                <Td>{chainId}</Td>
+              </Tr>
+              <Tr>
+                <Td>연결된 지갑주소</Td>
+                <Td>{account}</Td>
+              </Tr>
+              <Tr>
+                <Td>매칭되는 SCA 주소</Td>
+                <Td>{scaAddress}</Td>
+              </Tr>
+              <Tr>
+                <Td>EntryPoint Address</Td>
+                <Td>{entryAddress}</Td>
+              </Tr>
+            </Tbody>
+          </Table>
+        </TableContainer>
 
         <label>호출할 Contract Address</label>
         <Input
@@ -464,6 +552,41 @@ function App() {
           <label>{`nonce : ${nonce}`}</label>
         </Flex>
 
+
+        <Box width={"700px"} alignSelf={"flex-start"} borderWidth='5px' borderRadius='lg' padding={"5px"} borderColor={"blue"}>
+          <Flex flexDirection={"column"} gap={"5px"}>
+            <Flex gap={"10px"}>
+              <FormControl display='flex' alignItems='center'>
+                <FormLabel htmlFor='email-alerts' mb='0'>
+                  Use Paymaster?
+                </FormLabel>
+                <Switch mr={"10px"} id='email-alerts' onChange={(e) => {
+                  setUsePaymaster(e.target.checked);
+                  if (e.target.checked) {
+                    setUserOp({ ...userOp, signature: "" });
+                    generatePaymasterAndData("10");
+                  } else {
+                    setPaymasterAndData("");
+                    setUserOp({ ...userOp, paymasterAndData: "0x", signature: "" });
+                  }
+                }} />
+              </FormControl>
+              {`${paymasterAddress}`}
+            </Flex>
+            <Divider />
+            <Flex gap={"10px"}>
+              <BTN isDisabled={!usePaymaster} onClickFunc={() => { mintPaymasterErc20(1_000_000_000_000_000) }} name="Mint ERC20" />
+              <BTN isDisabled={!usePaymaster} onClickFunc={() => { getBalanceOfPaymasterErc20() }} name="BalanceOf" />
+              <label>{`balance : ${balOfERC20}`}</label>
+            </Flex>
+            <Flex gap={"10px"}>
+              <BTN isDisabled={!usePaymaster} onClickFunc={() => { depositPaymaster() }} name="Deposit Paymaster" />
+              <BTN isDisabled={!usePaymaster} onClickFunc={() => { addStake() }} name="Add Stake" />
+            </Flex>
+          </Flex>
+        </Box>
+
+
         <Flex gap={"10px"}>
           <BTN onClickFunc={() => { fetchEstimateGas(userOp); }} name="Gas Fee Estimate" />
           <label>{`gas : ${gas ? JSON.stringify(gas) : ""}`}</label>
@@ -471,12 +594,13 @@ function App() {
 
         <BTN onClickFunc={() => { signUserOp(userOp) }} name="UserOp 서명" />
 
-        <Textarea width={"600px"} height={"300px"} onChange={(e) => { setUserOp(e.target.value) }} value={JSON.stringify(userOp, null, 2)} />
-        <BTN onClickFunc={sendOp} name="UserOp 전송" />
+        <Textarea width={"700px"} height={"300px"} onChange={(e) => { setUserOp(e.target.value) }} value={JSON.stringify(userOp, null, 2)} />
+        <BTN onClickFunc={() => { sendOp(userOp) }} name="UserOp 전송" />
 
-        <Box width={"500px"} alignSelf={"flex-start"} borderWidth='5px' borderRadius='lg' padding={"5px"} borderColor={"blue"}>
+        <Box width={"700px"} alignSelf={"flex-start"} borderWidth='5px' borderRadius='lg' padding={"5px"} borderColor={"blue"}>
           <Flex flexDirection={"column"} alignItems={"center"} gap={"5px"}>
             <Text>Contract Call</Text>
+            <Divider />
             <Flex gap={"10px"}>
               <GetOwnerBTN scaAddress={scaAddress} />
               <GetMsgBTN contractAddress={targetAddr} />
@@ -484,9 +608,10 @@ function App() {
           </Flex>
         </Box>
 
-        <Box width={"500px"} alignSelf={"flex-start"} borderWidth='5px' borderRadius='lg' padding={"5px"} borderColor={"pink"}>
+        <Box width={"700px"} alignSelf={"flex-start"} borderWidth='5px' borderRadius='lg' padding={"5px"} borderColor={"pink"}>
           <Flex flexDirection={"column"} alignItems={"center"} gap={"5px"}>
             <Text>커스텀 콜 데이터</Text>
+            <Divider />
             <Flex gap={"10px"} flexDirection={"column"} alignSelf={"flex-start"}>
               <label>function name</label>
               <Input
@@ -527,9 +652,10 @@ function App() {
         </Box>
 
 
-        <Box width={"500px"} alignSelf={"flex-start"} borderWidth='5px' borderRadius='lg' padding={"5px"} borderColor={"greenyellow"}>
+        <Box width={"700px"} alignSelf={"flex-start"} borderWidth='5px' borderRadius='lg' padding={"5px"} borderColor={"greenyellow"}>
           <Flex flexDirection={"column"} alignItems={"center"} gap={"5px"}>
             <Text>테스트 기능</Text>
+            <Divider />
             <Flex gap={"10px"}>
               <BTN onClick={contractCreationTest} name="TestBTN" />
               <BTN onClick={signTx} name="SIGN!!!" />
