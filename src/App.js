@@ -6,38 +6,39 @@ import {
   Box, Flex, Input, Text, Textarea, Table, Tbody, Tr, Td, TableContainer, FormControl, FormLabel, Switch, Divider,
 } from "@chakra-ui/react";
 import BTN from "./components/atoms/Btn";
-import paymasterArtifact from "../src/abi/LegacyTokenPaymaster.json";
+
+import getConfig from "./config";
 const { Web3 } = require("web3");
-const paymasterAddress = "0x236Cdc733C3c3552487B3deCD80D4e50E1cB68A7";
-// MSG RECEIVER 0xb1078F5c052f0F8aE22C1FA9E7B6D866EC065809
+const initOp = {
+  sender: ethers.ZeroAddress,
+  nonce: "0x",
+  initCode: "0x",
+  callData: "0x",
+  callGasLimit: "0xffffff",
+  verificationGasLimit: "0xffffff",
+  preVerificationGas: "0xffffff",
+  maxFeePerGas: "0xF00000000",
+  // maxFeePerGas: "0xaffffffff",
+  maxPriorityFeePerGas: "0xaffffffff",
+  signature:
+    "0xfffffffffffffffffffffffffffffff0000000000000000000000000000000007aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa1c",
+  paymasterAndData: "0x",
+};
 
 function App() {
   const [web3, setWeb3] = useState(new Web3(window.ethereum));
   const [account, setAccount] = useState(ethers.ZeroAddress);
-  // const entryAddress = process.env.REACT_APP_ENTRYPOINT_ADDRESS;
   const [entryAddress, setEntryAddress] = useState(ethers.ZeroAddress)
   const [targetAddr, setTargetAddr] = useState(
-    "0x6de175459DE142b3bcd1B63d3E07F21Da48c7c14"
+    "0x7Ac0aC5919212F13D55cbf25d4D7171c5bCFf8cA"
+    // "0x6de175459DE142b3bcd1B63d3E07F21Da48c7c14"
   );
   const [scaAddress, setSCAaddress] = useState(ethers.ZeroAddress);
   const [method, setMethod] = useState("setMessage");
   const [Inputs, setInputs] = useState([`testMessage`]);
   const [callData, setCallData] = useState("");
-  const [userOp, setUserOp] = useState({
-    sender: ethers.ZeroAddress,
-    nonce: "0x",
-    initCode: "0x",
-    callData: "0x",
-    callGasLimit: "0xffffff",
-    verificationGasLimit: "0xffffff",
-    preVerificationGas: "0xffffff",
-    maxFeePerGas: "0xaffffffff",
-    maxPriorityFeePerGas: "0xaffffffff",
-    signature:
-      "0xfffffffffffffffffffffffffffffff0000000000000000000000000000000007aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa1c",
-    paymasterAndData: "0x",
-  });
-  const [nonce, setNonce] = useState(`-`);
+  const [userOp, setUserOp] = useState(initOp);
+  const [nonce, setNonce] = useState('-');
   const [gas, setGas] = useState();
   const [chainId, setChainId] = useState(`-`);
   const [funcName, setFuncName] = useState();
@@ -46,12 +47,21 @@ function App() {
   const [usePaymaster, setUsePaymaster] = useState(false);
   const [paymasterAndData, setPaymasterAndData] = useState("");
   const [balOfERC20, setbalOfERC20] = useState(0);
+  const [config, setConfig] = useState();
 
 
   useEffect(() => {
     try {
       if (window.ethereum) {
         setWeb3(new Web3(window.ethereum));
+        getChainId().then((cid) => {
+          console.log(cid);
+          if (cid) {
+            const cfg = getConfig(cid);
+            setConfig(cfg);
+          }
+        });
+
         window.ethereum.on('accountsChanged', (account) => {
           setAccount(account[0]);
           setSCAaddress(ethers.ZeroAddress);
@@ -71,6 +81,15 @@ function App() {
             paymasterAndData: "0x",
           })
         });
+        window.ethereum.on('networkChanged', function (networkId) {
+          if (networkId) {
+            setChainId(networkId);
+            const cfg = getConfig(networkId);
+            setConfig(cfg);
+            fetchEntryPoint();
+            setNonce(`-`);
+          }
+        })
       }
     } catch (error) {
       console.log(error);
@@ -78,13 +97,15 @@ function App() {
   }, []);
 
   useEffect(() => {
-    if (account !== ethers.ZeroAddress) getChainId();
-    if (account !== ethers.ZeroAddress && scaAddress === ethers.ZeroAddress) getSCAAddress();
-  }, [account, scaAddress])
+    // if (account !== ethers.ZeroAddress) getChainId();
+    // if (account !== ethers.ZeroAddress && scaAddress === ethers.ZeroAddress) getSCAAddress();
+    getSCAAddress();
+  }, [account])
 
   const getChainId = async () => {
-    let currentChain = await window.ethereum.request({ method: "eth_chainId" });
+    const currentChain = await window.ethereum.request({ method: "eth_chainId" });
     setChainId(currentChain);
+    return currentChain;
   };
 
   const getAccounts = async () => {
@@ -117,7 +138,7 @@ function App() {
     };
 
     const res = await fetch(
-      `https://polygon-mumbai.g.alchemy.com/v2/${process.env.REACT_APP_ALCHEMY_API_KEY}`,
+      config?.ALCHEMY_API_URL,
       options
     ).catch((err) => console.error(err));
     try {
@@ -162,17 +183,17 @@ function App() {
     //     "0xfffffffffffffffffffffffffffffff0000000000000000000000000000000007aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa1c",
     //   paymasterAndData: "0x",
     // };
-    const params = { ...userOp, sender: sender, nonce: "0x0", initCode: initcode }
-    setUserOp(params)
+    let params = { ...userOp, sender: sender, nonce: "0x0", initCode: initcode }
     const res = await fetchEstimateGas(params);
-    let op = {
+    console.log(res);
+    params = {
       ...params,
       preVerificationGas: res.preVerificationGas,
       verificationGasLimit: res.verificationGasLimit,
       callGasLimit: res.callGasLimit,
     };
-    setUserOp(op)
-    const signed = await signUserOp(op);
+
+    const signed = await signUserOp(params);
     const userOpHash = await sendOp(signed);
     console.log(userOpHash)
   };
@@ -238,7 +259,7 @@ function App() {
         }),
       };
       await fetch(
-        `https://polygon-mumbai.g.alchemy.com/v2/${process.env.REACT_APP_ALCHEMY_API_KEY}`,
+        config?.ALCHEMY_API_URL,
         options
       ).then(async (result) => {
         const gasResult = await result.json();
@@ -277,7 +298,7 @@ function App() {
         }),
       };
       const response = await fetch(
-        `https://polygon-mumbai.g.alchemy.com/v2/${process.env.REACT_APP_ALCHEMY_API_KEY}`,
+        config?.ALCHEMY_API_URL,
         options
       );
       const gasResult = await response.json();
@@ -404,7 +425,7 @@ function App() {
         params: [params, entryAddress === ethers.ZeroAddress ? ent : entryAddress],
       }),
     }
-    fetch(`https://polygon-mumbai.g.alchemy.com/v2/${process.env.REACT_APP_ALCHEMY_API_KEY}`, options)
+    fetch(config?.ALCHEMY_API_URL, options)
       .then((response) => response.json())
       .then((response) => {
         if (response?.error) alert(response.error.message);
@@ -415,12 +436,23 @@ function App() {
   }
 
   const contractCreationTest = async () => {
-    const bytecode = "0x608060405234801561001057600080fd5b50610808806100206000396000f3fe608060405234801561001057600080fd5b506004361061004c5760003560e01c8063368b8772146100515780637a6ce2e11461006d578063ce6d41de1461008b578063d737d0c7146100a9575b600080fd5b61006b600480360381019061006691906103a4565b6100c7565b005b610075610168565b604051610082919061042e565b60405180910390f35b610093610192565b6040516100a091906104c8565b60405180910390f35b6100b1610224565b6040516100be919061042e565b60405180910390f35b80600090816100d69190610700565b5033600160006101000a81548173ffffffffffffffffffffffffffffffffffffffff021916908373ffffffffffffffffffffffffffffffffffffffff1602179055503373ffffffffffffffffffffffffffffffffffffffff167e38ae9f9c9bfeb50a4df18037e2eee236960ec57a3fab6f18af2c5985ca66528260405161015d91906104c8565b60405180910390a250565b6000600160009054906101000a900473ffffffffffffffffffffffffffffffffffffffff16905090565b6060600080546101a190610519565b80601f01602080910402602001604051908101604052809291908181526020018280546101cd90610519565b801561021a5780601f106101ef5761010080835404028352916020019161021a565b820191906000526020600020905b8154815290600101906020018083116101fd57829003601f168201915b5050505050905090565b600160009054906101000a900473ffffffffffffffffffffffffffffffffffffffff1681565b6000604051905090565b600080fd5b600080fd5b600080fd5b600080fd5b6000601f19601f8301169050919050565b7f4e487b7100000000000000000000000000000000000000000000000000000000600052604160045260246000fd5b6102b182610268565b810181811067ffffffffffffffff821117156102d0576102cf610279565b5b80604052505050565b60006102e361024a565b90506102ef82826102a8565b919050565b600067ffffffffffffffff82111561030f5761030e610279565b5b61031882610268565b9050602081019050919050565b82818337600083830152505050565b6000610347610342846102f4565b6102d9565b90508281526020810184848401111561036357610362610263565b5b61036e848285610325565b509392505050565b600082601f83011261038b5761038a61025e565b5b813561039b848260208601610334565b91505092915050565b6000602082840312156103ba576103b9610254565b5b600082013567ffffffffffffffff8111156103d8576103d7610259565b5b6103e484828501610376565b91505092915050565b600073ffffffffffffffffffffffffffffffffffffffff82169050919050565b6000610418826103ed565b9050919050565b6104288161040d565b82525050565b6000602082019050610443600083018461041f565b92915050565b600081519050919050565b600082825260208201905092915050565b60005b83811015610483578082015181840152602081019050610468565b60008484015250505050565b600061049a82610449565b6104a48185610454565b93506104b4818560208601610465565b6104bd81610268565b840191505092915050565b600060208201905081810360008301526104e2818461048f565b905092915050565b7f4e487b7100000000000000000000000000000000000000000000000000000000600052602260045260246000fd5b6000600282049050600182168061053157607f821691505b602082108103610544576105436104ea565b5b50919050565b60008190508160005260206000209050919050565b60006020601f8301049050919050565b600082821b905092915050565b6000600883026105ac7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff8261056f565b6105b6868361056f565b95508019841693508086168417925050509392505050565b6000819050919050565b6000819050919050565b60006105fd6105f86105f3846105ce565b6105d8565b6105ce565b9050919050565b6000819050919050565b610617836105e2565b61062b61062382610604565b84845461057c565b825550505050565b600090565b610640610633565b61064b81848461060e565b505050565b5b8181101561066f57610664600082610638565b600181019050610651565b5050565b601f8211156106b4576106858161054a565b61068e8461055f565b8101602085101561069d578190505b6106b16106a98561055f565b830182610650565b50505b505050565b600082821c905092915050565b60006106d7600019846008026106b9565b1980831691505092915050565b60006106f083836106c6565b9150826002028217905092915050565b61070982610449565b67ffffffffffffffff81111561072257610721610279565b5b61072c8254610519565b610737828285610673565b600060209050601f83116001811461076a5760008415610758578287015190505b61076285826106e4565b8655506107ca565b601f1984166107788661054a565b60005b828110156107a05784890151825560018201915060208501945060208101905061077b565b868310156107bd57848901516107b9601f8916826106c6565b8355505b6001600288020188555050505b50505050505056fea2646970667358221220eb01bd1b5972f53077bf5bd71163ee86ec71994b786f9832a578506b7c49e4a564736f6c63430008140033"
-    let param = { ...userOp, callData: bytecode }
-    setUserOp(param)
-    // await fetchEstimateGas(param)
-    // return
-    // const res = await fetchAlchemy("eth_sendUserOperation", param)
+    try {
+      console.log("TESTING CONTRACT DEPLOY");
+      const provider = new ethers.BrowserProvider(window.ethereum);
+      const signer = await provider.getSigner();
+      // const msgSenderFactory = new ethers.ContractFactory(artifact.abi, artifact.bytecode, signer);
+      // const msgSender = await msgSenderFactory.deploy();
+      // const provider = new ethers.BrowserProvider(window.ethereum);
+
+      if (!entryAddress) alert("ENTRYPOINT 주소가 비어있습니다");
+      if (!config.ACCOUNT_FACTORY_ADDRESS) alert("ACCOUNT_FACTORY 주소가 비어있습니다");
+      const paymasterFactory = new ethers.ContractFactory(config?.PAYMASTER_ARTIFACT?.abi, config?.PAYMASTER_ARTIFACT?.bytecode, signer);
+      const paymaster = await paymasterFactory.deploy(config?.ACCOUNT_FACTORY_ADDRESS, "INN", entryAddress);
+      console.log(paymaster);
+
+    } catch (error) {
+      console.log(error);
+    }
   }
 
   function generatePaymasterAndData(tokenPrice) {
@@ -429,11 +461,11 @@ function App() {
       tokenPrice = Buffer.from(tokenPrice);
       pd = ethers.hexlify(
         ethers.concat(
-          [paymasterAddress, ethers.zeroPadValue(ethers.hexlify(tokenPrice), 32)]
+          [config?.PAYMASTER_ADDRESS, ethers.zeroPadValue(ethers.hexlify(tokenPrice), 32)]
         )
       );
     } else {
-      pd = ethers.hexlify(ethers.concat([paymasterAddress]));
+      pd = ethers.hexlify(ethers.concat([config?.PAYMASTER_ADDRESS]));
     }
     setUserOp({ ...userOp, paymasterAndData: pd })
     setPaymasterAndData(pd);
@@ -444,7 +476,7 @@ function App() {
     try {
       const provider = new ethers.BrowserProvider(window.ethereum);
       const signer = await provider.getSigner();
-      const paymaster = new ethers.Contract(paymasterAddress, paymasterArtifact.abi, signer);
+      const paymaster = new ethers.Contract(config?.PAYMASTER_ADDRESS, config?.PAYMASTER_ARTIFACT?.abi, signer);
       const result = await paymaster.mintTokens(scaAddress, amount);
       console.log(result);
     } catch (error) {
@@ -457,7 +489,7 @@ function App() {
       if (scaAddress === ethers.ZeroAddress) alert("SCA ADDRESS is empty");
       const provider = new ethers.BrowserProvider(window.ethereum);
       const signer = await provider.getSigner();
-      const paymaster = new ethers.Contract(paymasterAddress, paymasterArtifact.abi, signer);
+      const paymaster = new ethers.Contract(config?.PAYMASTER_ADDRESS, config?.PAYMASTER_ARTIFACT?.abi, signer);
       const result = await paymaster.balanceOf(scaAddress);
       console.log(Number(result));
       setbalOfERC20(Number(result));
@@ -469,7 +501,7 @@ function App() {
   async function depositPaymaster() {
     const provider = new ethers.BrowserProvider(window.ethereum);
     const signer = await provider.getSigner();
-    const paymaster = new ethers.Contract(paymasterAddress, paymasterArtifact.abi, signer);
+    const paymaster = new ethers.Contract(config?.PAYMASTER_ADDRESS, config?.PAYMASTER_ARTIFACT?.abi, signer);
     const result = await paymaster.deposit({ value: ethers.parseEther("0.5") });
     console.log(result);
   }
@@ -477,8 +509,20 @@ function App() {
   async function addStake() {
     const provider = new ethers.BrowserProvider(window.ethereum);
     const signer = await provider.getSigner();
-    const paymaster = new ethers.Contract(paymasterAddress, paymasterArtifact.abi, signer);
-    const result = await paymaster.addStake(84600 * 10, { value: ethers.parseEther('0.5') });
+    const paymaster = new ethers.Contract(config?.PAYMASTER_ADDRESS, config.PAYMASTER_ARTIFACT?.abi, signer);
+    const result = await paymaster.addStake(86400 * 2, { value: ethers.parseEther('0.1') });
+    // minimumStake : 10_000_000_000_000_000_000
+    // miniumUnstakeDelay : 86400
+    console.log(result);
+  }
+
+  async function sendMsg() {
+    const provider = new ethers.BrowserProvider(window.ethereum);
+    const signer = await provider.getSigner();
+    const msgContract = new ethers.Contract(config?.MESSAGE_SENDER_ADDRESS, config?.MESSAGE_SENDER_ARTIFACT?.abi, signer);
+    const result = await msgContract.setMessage("DIRECT SEND");
+    // minimumStake : 10_000_000_000_000_000_000
+    // miniumUnstakeDelay : 86400
     console.log(result);
   }
 
@@ -571,7 +615,7 @@ function App() {
                   }
                 }} />
               </FormControl>
-              {`${paymasterAddress}`}
+              {`${config?.PAYMASTER_ADDRESS}`}
             </Flex>
             <Divider />
             <Flex gap={"10px"}>
@@ -657,8 +701,8 @@ function App() {
             <Text>테스트 기능</Text>
             <Divider />
             <Flex gap={"10px"}>
-              <BTN onClick={contractCreationTest} name="TestBTN" />
-              <BTN onClick={signTx} name="SIGN!!!" />
+              <BTN onClickFunc={contractCreationTest} name="TestBTN1" />
+              <BTN onClickFunc={sendMsg} name="TestBTN2" />
             </Flex>
           </Flex>
         </Box>
