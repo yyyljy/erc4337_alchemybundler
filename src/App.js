@@ -521,8 +521,6 @@ function App() {
     const signer = await provider.getSigner();
     const msgContract = new ethers.Contract(config?.MESSAGE_SENDER_ADDRESS, config?.MESSAGE_SENDER_ARTIFACT?.abi, signer);
     const result = await msgContract.setMessage("DIRECT SEND");
-    // minimumStake : 10_000_000_000_000_000_000
-    // miniumUnstakeDelay : 86400
     console.log(result);
   }
 
