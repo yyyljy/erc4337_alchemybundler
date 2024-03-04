@@ -4,6 +4,13 @@
 
 ## Run
 install metamask
+
+.env-copy -> .env로 파일명 변경 및 파일 내용 수정
+
+현재는 바로 테스트할 수 있도록 key값을 입력해놓았으나
+
+추후 본인의 key값으로 변경하여 사용해주세요.
+
 ```
 git clone
 npm install
@@ -20,9 +27,16 @@ npm run start
 
 ## .env
 ```
-REACT_APP_ENTRYPOINT_ADDRESS = "0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789"
-REACT_APP_ACCOUNT_FACTORY_ADDRESS = "0x9406cc6185a346906296840746125a0e44976454"
-REACT_APP_ALCHEMY_API_KEY = "YOUR_ALCHEMY_API_KEY"
+REACT_APP_ENTRYPOINT_ADDRESS = "ENTRYPOINT CONTRACT ADDRESS"
+REACT_APP_ACCOUNT_FACTORY_ADDRESS = "AA를 배포할 FACTORY CONTRACT ADDRESS"
+REACT_APP_ALCHEMY_API_KEY = "ALCHEMY BUNDLER를 사용하기 위한 ALCHEMY KEY 값"
+REACT_APP_SEPOLIA_API_KEY = "SEPOLIA에 CONTRACT를 배포하기 위한 ALCHEMY KEY 값"
+
+REACT_APP_MUMBAI_PAYMASTER_ADDRESS="MUMBAI NETWORK에 배포한 PAYMASTER CONTRACT ADDRESS"
+REACT_APP_SEPOLIA_PAYMASTER_ADDRESS="SEPOLIA NETWORK에 배포한 PAYMASTER CONTRACT ADDRESS"
+
+REACT_APP_MUMBAI_CONTRACT = "예시를 위해 MUMBAI에 사전 배포해둔 DESTINATION CONTRACT ADDRESS"
+REACT_APP_SEPOLIA_CONTRACT = "예시를 위해 SEPOLIA에 사전 배포해둔 DESTINATION CONTRACT ADDRESS"
 ```
 
 ## Deploy SCA 순서
@@ -33,7 +47,7 @@ REACT_APP_ALCHEMY_API_KEY = "YOUR_ALCHEMY_API_KEY"
    - salt는 CREATE2에서 SCA Address를 생성하기 위해 사용됨
    - [CREATE2 참고자료](https://docs.openzeppelin.com/cli/2.8/deploying-with-create2)
 
-2. Entrypoint에 depositTo(0xb760faf9) 함수를 이용하여 생성할 Contract Balance를 Deposit함
+2. Gas Fee 지불을 위해 Entrypoint의 depositTo(0xb760faf9) 함수를 호출하여 AA Contract에 Deposit
    
    - ex ) depositTo(0.03, 1번에서 추출한 CA)
 
