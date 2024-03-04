@@ -7,7 +7,7 @@ const con = {
 
   ALCHEMY_API_URL: "",
 
-  ENTRYPOINT_ARTIFACT: require("../src/abi/EntryPoint.json"),
+  ENTRYPOINT_ARTIFACT: require("../src/abi/entrypoint.json"),
   MESSAGE_SENDER_ARTIFACT: require("../src/abi/MessageSender.json"),
   PAYMASTER_ARTIFACT: require("../src/abi/LegacyTokenPaymaster.json"),
 }

@@ -1,5 +1,15 @@
 # ERC-4337 ([Alchemy](https://docs.alchemy.com/reference/bundler-api-endpoints) & [Infinitism](https://github.com/eth-infinitism) & Mumbai)
 
+#### 본 자료는 Alchemy Bundler, Infinitism의 account-abstraction을 참고하여 작성했습니다.
+
+## Run
+install metamask
+```
+git clone
+npm install
+npm run start
+```
+
 ## Entry Point
 
 "0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789"
