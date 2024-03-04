@@ -23,19 +23,23 @@ REACT_APP_ALCHEMY_API_KEY = "YOUR_ALCHEMY_API_KEY"
    - salt는 CREATE2에서 SCA Address를 생성하기 위해 사용됨
    - [CREATE2 참고자료](https://docs.openzeppelin.com/cli/2.8/deploying-with-create2)
 
-2. initCode를 세팅한 UserOp를 작성 후 eth_estimateUserOperationGas 호출
+2. Entrypoint에 depositTo(0xb760faf9) 함수를 이용하여 생성할 Contract Balance를 Deposit함
+   
+   - ex ) depositTo(0.03, 1번에서 추출한 CA)
+
+3. initCode를 세팅한 UserOp를 작성 후 eth_estimateUserOperationGas 호출
 
    - `Given UserOperation optionally without gas limits and gas prices, return the needed gas limits.`
    - `The signature field is ignored by the wallet`
    - `Still, it might require putting a “semi-valid” signature (e.g. a signature in the right length)`
 
-3. 2번에서 return 받은 gas 값을 userOp에 세팅
+4. 2번에서 return 받은 gas 값을 userOp에 세팅
 
-4. paymaster(대납자)가 없는 경우 EntryPoint의 depositTo() 함수를 통해 SCA에 balance를 deposit 해줘야함.
+5. paymaster(대납자)가 없는 경우 EntryPoint의 depositTo() 함수를 통해 SCA에 balance를 deposit 해줘야함.
 
    메타마스크에서 SCA에 직접 보내도 됨(Metamask - Mumbai 테스트 완료)
 
-5. userOp에 signature값 생성 후 세팅하여 eth_sendUserOperation 호출
+6. userOp에 signature값 생성 후 세팅하여 eth_sendUserOperation 호출
 
 ### Example Data
 

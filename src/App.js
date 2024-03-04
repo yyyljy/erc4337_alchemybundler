@@ -3,27 +3,13 @@ import { ethers } from "ethers";
 import GetOwnerBTN from "./components/atoms/GetOwnerBTN";
 import GetMsgBTN from "./components/atoms/GetMsgBTN";
 import {
-  Box, Flex, Input, Text, Textarea, Table, Tbody, Tr, Td, TableContainer, FormControl, FormLabel, Switch, Divider,
+  Box, Flex, Input, Text, Textarea, Table, Tbody, Tr, Td, TableContainer, FormControl, FormLabel, Switch, Divider, InputGroup, InputLeftAddon, Tooltip,
 } from "@chakra-ui/react";
 import BTN from "./components/atoms/Btn";
 
 import getConfig from "./config";
+import { TOOLTIP_CUSTOM_CALL, TOOLTIP_DEPLOY_SCA, TOOLTIP_DEST_CONTRACT_CALL, TOOLTIP_INFO_TABLE, TOOLTIP_INIT, TOOLTIP_PAYMASTER, initUserOp } from "./constraints";
 const { Web3 } = require("web3");
-const initOp = {
-  sender: ethers.ZeroAddress,
-  nonce: "0x",
-  initCode: "0x",
-  callData: "0x",
-  callGasLimit: "0xffffff",
-  verificationGasLimit: "0xffffff",
-  preVerificationGas: "0xffffff",
-  maxFeePerGas: "0xF00000000",
-  // maxFeePerGas: "0xaffffffff",
-  maxPriorityFeePerGas: "0xaffffffff",
-  signature:
-    "0xfffffffffffffffffffffffffffffff0000000000000000000000000000000007aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa1c",
-  paymasterAndData: "0x",
-};
 
 function App() {
   const [web3, setWeb3] = useState(new Web3(window.ethereum));
@@ -37,17 +23,23 @@ function App() {
   const [method, setMethod] = useState("setMessage");
   const [Inputs, setInputs] = useState([`testMessage`]);
   const [callData, setCallData] = useState("");
-  const [userOp, setUserOp] = useState(initOp);
+  const [userOp, setUserOp] = useState(initUserOp);
   const [nonce, setNonce] = useState('-');
   const [gas, setGas] = useState();
   const [chainId, setChainId] = useState(`-`);
-  const [funcName, setFuncName] = useState();
-  const [funcInput, setFuncInput] = useState();
-  const [funcABI, setFuncABI] = useState();
+  const [config, setConfig] = useState();
+  const [balance, setBalance] = useState('0');
+
+  // Paymaster
   const [usePaymaster, setUsePaymaster] = useState(false);
   const [paymasterAndData, setPaymasterAndData] = useState("");
   const [balOfERC20, setbalOfERC20] = useState(0);
-  const [config, setConfig] = useState();
+
+  // 커스텀 콜
+  const [funcAddr, setFuncAddr] = useState();
+  const [funcABI, setFuncABI] = useState();
+  const [funcName, setFuncName] = useState();
+  const [funcInput, setFuncInput] = useState();
 
 
   useEffect(() => {
@@ -61,7 +53,6 @@ function App() {
             setConfig(cfg);
           }
         });
-
         window.ethereum.on('accountsChanged', (account) => {
           setAccount(account[0]);
           setSCAaddress(ethers.ZeroAddress);
@@ -83,6 +74,7 @@ function App() {
         });
         window.ethereum.on('networkChanged', function (networkId) {
           if (networkId) {
+            console.log(Number(networkId));
             setChainId(networkId);
             const cfg = getConfig(networkId);
             setConfig(cfg);
@@ -124,30 +116,32 @@ function App() {
   };
 
   const fetchEntryPoint = async () => {
-    const options = {
-      method: "POST",
-      headers: {
-        accept: "application/json",
-        "content-type": "application/json",
-      },
-      body: JSON.stringify({
-        id: 1,
-        jsonrpc: "2.0",
-        method: "eth_supportedEntryPoints",
-      }),
-    };
-
-    const res = await fetch(
-      config?.ALCHEMY_API_URL,
-      options
-    ).catch((err) => console.error(err));
     try {
+      if (!config?.ALCHEMY_API_URL) return;
+      const options = {
+        method: "POST",
+        headers: {
+          accept: "application/json",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          id: 1,
+          jsonrpc: "2.0",
+          method: "eth_supportedEntryPoints",
+        }),
+      };
+
+      const res = await fetch(
+        config?.ALCHEMY_API_URL,
+        options
+      ).catch((err) => console.error(err));
+
       let addr = (await res.json()).result
       setEntryAddress(addr[0])
-    } catch {
-      console.log("Fetch Entry Error")
+    } catch (error) {
+      console.log(error);
     }
-  };
+  }
 
   const getSCAAddress = async () => {
     if (account === ethers.ZeroAddress) getAccounts();
@@ -166,7 +160,7 @@ function App() {
   };
 
   const deploySCA = async () => {
-    let sender = scaAddress
+    const sender = scaAddress;
     if (sender === ethers.ZeroAddress) sender = await getSCAAddress();
     const initcode = process.env.REACT_APP_ACCOUNT_FACTORY_ADDRESS + "5fbfb9cf000000000000000000000000" + account.slice(2) + "0000000000000000000000000000000000000000000000000000000000000000"
     // const params = {
@@ -199,12 +193,14 @@ function App() {
   };
 
   const getNonce = async () => {
-    const abi = require("./abi/entrypoint.json");
-    const entryContract = new web3.eth.Contract(abi, entryAddress);
-    const nonce = await entryContract.methods.getNonce(scaAddress, "0").call();
-    let nn = web3.utils.toHex(nonce);
+    const provider = new ethers.BrowserProvider(window.ethereum);
+    const signer = await provider.getSigner();
+    const entry = new ethers.Contract(entryAddress, config.ENTRYPOINT_ARTIFACT.abi, signer);
+    const result = await entry.getNonce(scaAddress, "0");
+    let nn = ethers.toBeHex(result);
     setNonce(nn);
     setUserOp({ ...userOp, nonce: nn })
+    console.log(nn);
     return nn;
   };
 
@@ -221,6 +217,8 @@ function App() {
     ]);
     setCallData(calldata);
     setUserOp({ ...userOp, callData: calldata })
+    // const initcode = process.env.REACT_APP_ACCOUNT_FACTORY_ADDRESS + "5fbfb9cf000000000000000000000000" + account.slice(2) + "0000000000000000000000000000000000000000000000000000000000000000"
+    // setUserOp({ ...userOp, initCode: initcode, callData: calldata });
     return calldata;
   };
 
@@ -228,8 +226,9 @@ function App() {
     try {
       if (!funcABI) throw new Error(`function ABI ERROR`);
 
-      let cUserOp = userOp;
-      const abi = require("./abi/entrypoint.json");
+      let cUserOp = initUserOp;
+      cUserOp = { ...cUserOp, sender: scaAddress };
+      const abi = require("./abi/entrypoint_abi.json");
       const entryContract = new web3.eth.Contract(abi, entryAddress);
       const nonce = await entryContract.methods.getNonce(scaAddress, "0").call();
       cUserOp.nonce = web3.utils.toHex(nonce);
@@ -240,7 +239,7 @@ function App() {
       const customABI2 = new ethers.Interface([funcABI]).encodeFunctionData(funcName, [Inputs]);
 
       cUserOp.callData = accountABI.encodeFunctionData("execute", [
-        targetAddr,
+        funcAddr,
         ethers.ZeroAddress,
         customABI2,
       ]);
@@ -327,14 +326,14 @@ function App() {
     return Object.assign(Object.assign({}, op), { signature });
   };
 
-  const signTx = async () => {
-    const data = ""
-    const sign = await window.ethereum.request({
-      method: 'personal_sign',
-      params: [data, account],
-    });
-    return sign;
-  };
+  // const signTx = async () => {
+  //   const data = ""
+  //   const sign = await window.ethereum.request({
+  //     method: 'personal_sign',
+  //     params: [data, account],
+  //   });
+  //   return sign;
+  // };
 
   const sendOp = async (signed) => {
     let param = signed ? signed : userOp
@@ -475,7 +474,9 @@ function App() {
   async function mintPaymasterErc20(amount) {
     try {
       const provider = new ethers.BrowserProvider(window.ethereum);
-      const signer = await provider.getSigner();
+      // const signer = await provider.getSigner();
+      const signer = new ethers.Wallet("f03e13869ab65bf1f295ac645dc52225a1fc0931df0f9af56bfe9517c5cc8a60", provider);
+      // signer.get
       const paymaster = new ethers.Contract(config?.PAYMASTER_ADDRESS, config?.PAYMASTER_ARTIFACT?.abi, signer);
       const result = await paymaster.mintTokens(scaAddress, amount);
       console.log(result);
@@ -502,7 +503,7 @@ function App() {
     const provider = new ethers.BrowserProvider(window.ethereum);
     const signer = await provider.getSigner();
     const paymaster = new ethers.Contract(config?.PAYMASTER_ADDRESS, config?.PAYMASTER_ARTIFACT?.abi, signer);
-    const result = await paymaster.deposit({ value: ethers.parseEther("0.5") });
+    const result = await paymaster.deposit({ value: ethers.parseEther("0.1") });
     console.log(result);
   }
 
@@ -524,124 +525,214 @@ function App() {
     console.log(result);
   }
 
+  async function depositTo() {
+    try {
+      if (entryAddress === ethers.ZeroAddress) {
+        alert('EntryPoint CA 조회를 선행해주세요');
+        return;
+      }
+      const provider = new ethers.BrowserProvider(window.ethereum);
+      const signer = await provider.getSigner();
+      const entrypoint = new ethers.Contract(entryAddress, config.ENTRYPOINT_ARTIFACT.abi, signer);
+      const balance = await entrypoint.balanceOf(scaAddress);
+      console.log(balance);
+      const result = await entrypoint.depositTo(scaAddress, { value: ethers.parseEther('0.1') });
+      console.log(result);
+      const balanceAfter = await entrypoint.balanceOf(scaAddress);
+      console.log(balanceAfter);
+
+    } catch (error) {
+      console.log(error);
+    }
+  }
+
+  async function getBalance() {
+    try {
+      const provider = new ethers.BrowserProvider(window.ethereum);
+      const signer = await provider.getSigner();
+      const entrypoint = new ethers.Contract(entryAddress, config.ENTRYPOINT_ARTIFACT.abi, signer);
+      const bal = await entrypoint.balanceOf(scaAddress);
+      // alert(bal);
+      setBalance(Number(bal));
+      console.log(bal);
+    } catch (error) {
+      console.log(error);
+    }
+  }
+
   return (
     <div className="App">
       <Flex flexDirection={"column"} gap={"5px"}>
-        <Flex width={"600px"} flexDirection={"row"} gap={"10px"}>
-          <BTN onClickFunc={getAccounts} name={"지갑연결"} />
-          <BTN onClickFunc={fetchEntryPoint} name="EntryPoint CA 조회" />
-          <BTN onClickFunc={deploySCA} name="SCA 배포" />
-        </Flex>
+        <Box width={"700px"} alignSelf={"flex-start"} borderWidth='5px' borderRadius='lg' padding={"5px"} borderColor={"red.300"}>
+          <Tooltip hasArrow placement="right-end" label={TOOLTIP_INIT} bg='red.600'>
+            <Flex flexDirection={"column"} alignItems={"center"} gap={"5px"}>
+              <Text>Initialize</Text>
+              <Divider />
+              <Flex gap={"10px"}>
 
-        <Text>Information Table</Text>
-        <TableContainer width={"700px"} borderWidth='5px' borderRadius='lg' padding={"5px"} borderColor={"skyblue"}>
-          <Table variant='simple'>
-            <Tbody>
-              <Tr>
-                <Td>ChainId</Td>
-                <Td>{chainId}</Td>
-              </Tr>
-              <Tr>
-                <Td>연결된 지갑주소</Td>
-                <Td>{account}</Td>
-              </Tr>
-              <Tr>
-                <Td>매칭되는 SCA 주소</Td>
-                <Td>{scaAddress}</Td>
-              </Tr>
-              <Tr>
-                <Td>EntryPoint Address</Td>
-                <Td>{entryAddress}</Td>
-              </Tr>
-            </Tbody>
-          </Table>
-        </TableContainer>
-
-        <label>호출할 Contract Address</label>
-        <Input
-          name="targetContractAddress" width={"500px"}
-          onChange={(e) => {
-            setTargetAddr(e.target.value);
-          }}
-          value={targetAddr}
-        ></Input>
-
-        <label>호출할 함수명</label>
-        <Input
-          name="method"
-          value={method} width={"500px"}
-          onChange={(e) => {
-            setMethod(e.target.value);
-          }}
-        ></Input>
-
-        <label>Inputs</label>
-        <Input
-          name="Inputs" width={"500px"}
-          onChange={(e) => {
-            setInputs(e.target.value);
-          }}
-        ></Input>
-
-
-        <Flex gap={"10px"}>
-          <BTN onClickFunc={createCallData} name="callData 생성" />
-          <Text width={"500px"} >{`callData Length: ${callData?.length}`}</Text>
-        </Flex>
-
-        <Flex gap={"10px"}>
-          <BTN onClickFunc={getNonce} name="SCA Nonce 조회" />
-          <label>{`nonce : ${nonce}`}</label>
-        </Flex>
-
-
-        <Box width={"700px"} alignSelf={"flex-start"} borderWidth='5px' borderRadius='lg' padding={"5px"} borderColor={"blue"}>
-          <Flex flexDirection={"column"} gap={"5px"}>
-            <Flex gap={"10px"}>
-              <FormControl display='flex' alignItems='center'>
-                <FormLabel htmlFor='email-alerts' mb='0'>
-                  Use Paymaster?
-                </FormLabel>
-                <Switch mr={"10px"} id='email-alerts' onChange={(e) => {
-                  setUsePaymaster(e.target.checked);
-                  if (e.target.checked) {
-                    setUserOp({ ...userOp, signature: "" });
-                    generatePaymasterAndData("10");
-                  } else {
-                    setPaymasterAndData("");
-                    setUserOp({ ...userOp, paymasterAndData: "0x", signature: "" });
-                  }
-                }} />
-              </FormControl>
-              {`${config?.PAYMASTER_ADDRESS}`}
+                <BTN onClickFunc={getAccounts} name={"지갑연결"} />
+                <BTN onClickFunc={fetchEntryPoint} name="EntryPoint CA 조회" />
+              </Flex>
             </Flex>
-            <Divider />
-            <Flex gap={"10px"}>
-              <BTN isDisabled={!usePaymaster} onClickFunc={() => { mintPaymasterErc20(1_000_000_000_000_000) }} name="Mint ERC20" />
-              <BTN isDisabled={!usePaymaster} onClickFunc={() => { getBalanceOfPaymasterErc20() }} name="BalanceOf" />
-              <label>{`balance : ${balOfERC20}`}</label>
+          </Tooltip>
+        </Box>
+        <Box width={"700px"} alignSelf={"flex-start"} borderWidth='5px' borderRadius='lg' padding={"5px"} borderColor={"orange.300"}>
+          <Tooltip hasArrow placement="right-end" label={TOOLTIP_DEPLOY_SCA} bg='orange.600'>
+            <Flex flexDirection={"column"} alignItems={"center"} gap={"5px"}>
+              <Text>Deploy Simple Contract Account // balance:[{(balance / 10 ** 18).toFixed(4)}]</Text>
+              <Divider />
+              <Flex gap={"10px"}>
+                <BTN onClickFunc={getBalance} name="getBalance" />
+                <BTN onClickFunc={depositTo} name="Deposit 0.1 ETH" />
+                <BTN onClickFunc={deploySCA} name="SCA 배포" />
+              </Flex>
             </Flex>
-            <Flex gap={"10px"}>
-              <BTN isDisabled={!usePaymaster} onClickFunc={() => { depositPaymaster() }} name="Deposit Paymaster" />
-              <BTN isDisabled={!usePaymaster} onClickFunc={() => { addStake() }} name="Add Stake" />
-            </Flex>
-          </Flex>
+          </Tooltip>
         </Box>
 
+        <Tooltip hasArrow placement="right-end" label={TOOLTIP_INFO_TABLE} bg='yellow.600'>
+          <TableContainer width={"700px"} borderWidth='5px' borderRadius='lg' padding={"5px"} borderColor={"yellow.300"}>
+            <Text>Info Table</Text>
+            <Table variant='simple'>
+              <Tbody>
+                <Tr>
+                  <Td>ChainId</Td>
+                  <Td>{chainId}</Td>
+                </Tr>
+                <Tr>
+                  <Td>연결된 지갑주소</Td>
+                  <Td>{account}</Td>
+                </Tr>
+                <Tr>
+                  <Td>매칭되는 SCA 주소</Td>
+                  <Td>{scaAddress}</Td>
+                </Tr>
+                <Tr>
+                  <Td>EntryPoint Address</Td>
+                  <Td>{entryAddress}</Td>
+                </Tr>
+              </Tbody>
+            </Table>
+          </TableContainer>
+        </Tooltip>
 
-        <Flex gap={"10px"}>
-          <BTN onClickFunc={() => { fetchEstimateGas(userOp); }} name="Gas Fee Estimate" />
-          <label>{`gas : ${gas ? JSON.stringify(gas) : ""}`}</label>
-        </Flex>
+        <Tooltip hasArrow placement="right-end" label={TOOLTIP_DEST_CONTRACT_CALL} bg='green.600'>
+          <Box width={"700px"} alignSelf={"flex-start"} borderWidth='5px' borderRadius='lg' padding={"5px"} borderColor={"green.300"}>
+            <Text>Destination Contract Call</Text>
+            <Divider />
+            <Flex flexDirection={"column"} alignItems={"flex-start"} gap={"5px"}>
+              <InputGroup>
+                <InputLeftAddon width={"200px"}>
+                  Destination CA
+                </InputLeftAddon>
+                <Input
+                  name="targetContractAddress" width={"500px"}
+                  onChange={(e) => {
+                    setTargetAddr(e.target.value);
+                  }}
+                  value={targetAddr}
+                  disabled={true}
+                ></Input>
+              </InputGroup>
 
-        <BTN onClickFunc={() => { signUserOp(userOp) }} name="UserOp 서명" />
+              <InputGroup>
+                <InputLeftAddon width={"200px"}>Function Name</InputLeftAddon>
+                <Input
+                  name="method"
+                  value={method} width={"500px"}
+                  onChange={(e) => {
+                    setMethod(e.target.value);
+                  }}
+                  disabled={true}
+
+                ></Input>
+              </InputGroup>
+
+              <InputGroup>
+                <InputLeftAddon width={"200px"}>Inputs</InputLeftAddon>
+                <Input
+                  name="Inputs" width={"500px"}
+                  onChange={(e) => {
+                    setInputs(e.target.value);
+                  }}
+                  placeholder="전송할 메세지를 입력하세요"
+                ></Input>
+              </InputGroup>
+
+              <Box>
+                <Flex gap={"10px"}>
+                  <BTN onClickFunc={createCallData} name="callData 생성" />
+                  <Text width={"300px"} >{`callData Length: ${callData?.length}`}</Text>
+                </Flex>
+              </Box>
+
+              <Box>
+                <Flex gap={"10px"}>
+                  <BTN onClickFunc={getNonce} name="SCA Nonce 조회" />
+                  <Text width={"300px"} >{`nonce : ${nonce}`}</Text>
+                </Flex>
+              </Box>
+            </Flex>
+          </Box>
+        </Tooltip>
+
+        <Tooltip hasArrow placement="right-end" label={TOOLTIP_PAYMASTER} bg='blue.600'>
+          <Box width={"700px"} alignSelf={"flex-start"} borderWidth='5px' borderRadius='lg' padding={"5px"} borderColor={"blue.300"}>
+            <Flex flexDirection={"column"} gap={"5px"}>
+              <Flex gap={"10px"}>
+                <FormControl display='flex' alignItems='center'>
+                  <FormLabel htmlFor='email-alerts' mb='0'>
+                    Use Paymaster?
+                  </FormLabel>
+                  <Switch mr={"10px"} id='email-alerts' onChange={(e) => {
+                    setUsePaymaster(e.target.checked);
+                    if (e.target.checked) {
+                      setUserOp({ ...userOp, signature: "" });
+                      generatePaymasterAndData("10");
+                    } else {
+                      setPaymasterAndData("");
+                      setUserOp({ ...userOp, paymasterAndData: "0x", signature: "" });
+                    }
+                  }} />
+                </FormControl>
+                {`${config?.PAYMASTER_ADDRESS}`}
+              </Flex>
+              <Divider />
+              <Flex gap={"10px"}>
+                <BTN isDisabled={!usePaymaster} onClickFunc={() => { mintPaymasterErc20(1_000_000_000_000_000) }} name="Mint ERC20" />
+                <BTN isDisabled={!usePaymaster} onClickFunc={() => { getBalanceOfPaymasterErc20() }} name="BalanceOf" />
+                <label>{`balance : ${(Number(balOfERC20) / 10 ** 18).toFixed(6)}`}</label>
+              </Flex>
+              <Flex gap={"10px"}>
+                <BTN isDisabled={!usePaymaster} onClickFunc={() => { depositPaymaster() }} name="Deposit Paymaster" />
+                <BTN isDisabled={!usePaymaster} onClickFunc={() => { addStake() }} name="Add Stake" />
+              </Flex>
+            </Flex>
+          </Box>
+        </Tooltip>
+
+        <Tooltip hasArrow placement="right-end" label={TOOLTIP_CUSTOM_CALL} bg='blue.700'>
+          <Box width={"700px"} alignSelf={"flex-start"} borderWidth='5px' borderRadius='lg' padding={"5px"} borderColor={"blue.700"}>
+            <Flex flexDirection={"column"} alignItems={"flex-start"} gap={"5px"}>
+              <Text>커스텀 콜 데이터</Text>
+              <Divider />
+
+              <Flex gap={"10px"}>
+                <BTN onClickFunc={() => { fetchEstimateGas(userOp); }} name="Gas Fee Estimate" />
+                <label>{`${!gas ? "" : JSON.stringify(gas).length < 60 ? JSON.stringify(gas) : JSON.stringify(gas).slice(0, 60) + "..."}`}</label>
+              </Flex>
+
+              <BTN onClickFunc={() => { signUserOp(userOp) }} name="UserOp 서명" />
+              <BTN onClickFunc={() => { sendOp(userOp) }} name="UserOp 전송" />
+            </Flex>
+          </Box>
+        </Tooltip>
 
         <Textarea width={"700px"} height={"300px"} onChange={(e) => { setUserOp(e.target.value) }} value={JSON.stringify(userOp, null, 2)} />
-        <BTN onClickFunc={() => { sendOp(userOp) }} name="UserOp 전송" />
 
-        <Box width={"700px"} alignSelf={"flex-start"} borderWidth='5px' borderRadius='lg' padding={"5px"} borderColor={"blue"}>
+        <Box width={"700px"} alignSelf={"flex-start"} borderWidth='5px' borderRadius='lg' padding={"5px"} borderColor={"blue.700"}>
           <Flex flexDirection={"column"} alignItems={"center"} gap={"5px"}>
-            <Text>Contract Call</Text>
+            <Text>Destination Contract Call</Text>
             <Divider />
             <Flex gap={"10px"}>
               <GetOwnerBTN scaAddress={scaAddress} />
@@ -650,51 +741,73 @@ function App() {
           </Flex>
         </Box>
 
-        <Box width={"700px"} alignSelf={"flex-start"} borderWidth='5px' borderRadius='lg' padding={"5px"} borderColor={"pink"}>
-          <Flex flexDirection={"column"} alignItems={"center"} gap={"5px"}>
-            <Text>커스텀 콜 데이터</Text>
-            <Divider />
-            <Flex gap={"10px"} flexDirection={"column"} alignSelf={"flex-start"}>
-              <label>function name</label>
-              <Input
-                name="Inputs"
-                onChange={(e) => {
-                  setFuncName(e.target.value);
-                  setFuncABI(`function ${e.target.value}(${funcInput})`)
-                }}
-              ></Input>
+        <Tooltip hasArrow placement="right-end" label={TOOLTIP_CUSTOM_CALL} bg='purple.600'>
+          <Box width={"700px"} alignSelf={"flex-start"} borderWidth='5px' borderRadius='lg' padding={"5px"} borderColor={"purple.300"}>
+            <Flex flexDirection={"column"} alignItems={"center"} gap={"5px"}>
+              <Text>커스텀 콜 데이터</Text>
+              <Divider />
+              <Flex gap={"10px"} flexDirection={"column"} alignSelf={"flex-start"}>
+                <InputGroup>
+                  <InputLeftAddon width={"180px"}>Destination CA</InputLeftAddon>
+                  <Input
+                    width={"500px"}
+                    name="funcAddr"
+                    onChange={(e) => {
+                      setFuncAddr(e.target.value)
+                    }}
+                  ></Input>
+                </InputGroup>
 
-              <label>Input types & names</label>
+                <InputGroup>
+                  <InputLeftAddon width={"180px"}>Function Name</InputLeftAddon>
+                  <Input
+                    name="Inputs"
+                    onChange={(e) => {
+                      setFuncName(e.target.value);
+                      setFuncABI(`function ${e.target.value}(${funcInput})`)
+                    }}
+                    placeholder="ex) setMessage"
+                  ></Input>
+                </InputGroup>
 
-              <Input
-                name="Inputs"
-                onChange={(e) => {
-                  setFuncInput(e.target.value);
-                  setFuncABI(`function ${funcName}(${e.target.value})`)
-                }}
-              ></Input>
+                <InputGroup>
+                  <InputLeftAddon width={"180px"}>Input types & names</InputLeftAddon>
+                  <Input
+                    name="Inputs"
+                    onChange={(e) => {
+                      setFuncInput(e.target.value);
+                      setFuncABI(`function ${funcName}(${e.target.value})`)
+                    }}
+                    placeholder="ex) string _msg"
+                  ></Input>
+                </InputGroup>
 
-              <label>{`function ${funcName}(${funcInput})`}</label>
-              <label>Inputs</label>
-              <Input
-                name="Inputs"
-                onChange={(e) => {
-                  setInputs(e.target.value);
-                }}
-              ></Input>
-              <BTN onClickFunc={() => { signCustomCallData(); }} name="Sign & Send" />
+                <label>{`function ${funcName}(${funcInput})`}</label>
 
-              <label>Custom callData</label>
+                <InputGroup>
+                  <InputLeftAddon width={"180px"}>Inputs</InputLeftAddon>
+                  <Input
+                    name="Inputs"
+                    onChange={(e) => {
+                      setInputs(e.target.value);
+                    }}
+                  ></Input>
+                </InputGroup>
 
-              <Input value={callData} name="callData" onChange={(e) => {
-                setCallData(e.target.value)
-              }}></Input>
+                <BTN onClickFunc={() => { signCustomCallData(); }} name="Sign & Send" />
+
+                <label>Custom callData</label>
+
+                <Input value={callData} name="callData" onChange={(e) => {
+                  setCallData(e.target.value)
+                }}></Input>
+              </Flex>
             </Flex>
-          </Flex>
-        </Box>
+          </Box>
+        </Tooltip>
 
 
-        <Box width={"700px"} alignSelf={"flex-start"} borderWidth='5px' borderRadius='lg' padding={"5px"} borderColor={"greenyellow"}>
+        <Box width={"700px"} alignSelf={"flex-start"} borderWidth='5px' borderRadius='lg' padding={"5px"} borderColor={"black"}>
           <Flex flexDirection={"column"} alignItems={"center"} gap={"5px"}>
             <Text>테스트 기능</Text>
             <Divider />
