@@ -8,7 +8,7 @@ import {
 import BTN from "./components/atoms/Btn";
 
 import getConfig from "./config";
-import { TOOLTIP_CUSTOM_CALL, TOOLTIP_DEPLOY_SCA, TOOLTIP_DEST_CONTRACT_CALL, TOOLTIP_INFO_TABLE, TOOLTIP_INIT, TOOLTIP_PAYMASTER, initUserOp } from "./constraints";
+import { TOOLTIP_CUSTOM_CALL, TOOLTIP_DEPLOY_SAC, TOOLTIP_DEST_CONTRACT_CALL, TOOLTIP_INFO_TABLE, TOOLTIP_INIT, TOOLTIP_PAYMASTER, initUserOp } from "./constraints";
 const { Web3 } = require("web3");
 
 function App() {
@@ -19,9 +19,9 @@ function App() {
     "0x7Ac0aC5919212F13D55cbf25d4D7171c5bCFf8cA"
     // "0x6de175459DE142b3bcd1B63d3E07F21Da48c7c14"
   );
-  const [scaAddress, setSCAaddress] = useState(ethers.ZeroAddress);
+  const [sacAddress, setSACaddress] = useState(ethers.ZeroAddress);
   const [method, setMethod] = useState("setMessage");
-  const [Inputs, setInputs] = useState([`testMessage`]);
+  const [Inputs, setInputs] = useState(``);
   const [callData, setCallData] = useState("");
   const [userOp, setUserOp] = useState(initUserOp);
   const [nonce, setNonce] = useState('-');
@@ -41,7 +41,6 @@ function App() {
   const [funcName, setFuncName] = useState();
   const [funcInput, setFuncInput] = useState();
 
-
   useEffect(() => {
     try {
       if (window.ethereum) {
@@ -54,33 +53,29 @@ function App() {
           }
         });
         window.ethereum.on('accountsChanged', (account) => {
-          setAccount(account[0]);
-          setSCAaddress(ethers.ZeroAddress);
-          setNonce(`-`);
-          setUserOp({
-            sender: ethers.ZeroAddress,
-            nonce: "0x",
-            initCode: "0x",
-            callData: "0x",
-            callGasLimit: "0xffffff",
-            verificationGasLimit: "0xffffff",
-            preVerificationGas: "0xffffff",
-            maxFeePerGas: "0xaffffffff",
-            maxPriorityFeePerGas: "0xaffffffff",
-            signature:
-              "0xfffffffffffffffffffffffffffffff0000000000000000000000000000000007aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa1c",
-            paymasterAndData: "0x",
-          })
+          alert("지갑이 변경되었습니다");
+          window.location.reload();
+          // setAccount(account[0]);
+          // setSACaddress(ethers.ZeroAddress);
+          // setNonce(`-`);
+          // setUserOp({
+          //   sender: ethers.ZeroAddress,
+          //   nonce: "0x",
+          //   initCode: "0x",
+          //   callData: "0x",
+          //   callGasLimit: "0xffffff",
+          //   verificationGasLimit: "0xffffff",
+          //   preVerificationGas: "0xffffff",
+          //   maxFeePerGas: "0xaffffffff",
+          //   maxPriorityFeePerGas: "0xaffffffff",
+          //   signature:
+          //     "0xfffffffffffffffffffffffffffffff0000000000000000000000000000000007aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa1c",
+          //   paymasterAndData: "0x",
+          // })
         });
-        window.ethereum.on('networkChanged', function (networkId) {
-          if (networkId) {
-            console.log(Number(networkId));
-            setChainId(networkId);
-            const cfg = getConfig(networkId);
-            setConfig(cfg);
-            fetchEntryPoint();
-            setNonce(`-`);
-          }
+        window.ethereum.on('chainChanged', function (chainId) {
+          alert("네트워크가 변경되었습니다");
+          window.location.reload();
         })
       }
     } catch (error) {
@@ -90,8 +85,8 @@ function App() {
 
   useEffect(() => {
     // if (account !== ethers.ZeroAddress) getChainId();
-    // if (account !== ethers.ZeroAddress && scaAddress === ethers.ZeroAddress) getSCAAddress();
-    getSCAAddress();
+    if (account !== ethers.ZeroAddress && sacAddress === ethers.ZeroAddress) getSACAddress();
+    // getSACAddress();
   }, [account])
 
   const getChainId = async () => {
@@ -143,40 +138,37 @@ function App() {
     }
   }
 
-  const getSCAAddress = async () => {
-    if (account === ethers.ZeroAddress) getAccounts();
-    const abi = require("./abi/SimpleAccountFactory.json");
-    const factoryContract = new web3.eth.Contract(
-      abi,
-      process.env.REACT_APP_ACCOUNT_FACTORY_ADDRESS
-    );
-    const res = await factoryContract.methods.getAddress(account, "0").call();
-    if (res) {
-      setUserOp({ ...userOp, sender: res })
-      setSCAaddress(res)
+  const getSACAddress = async () => {
+    try {
+
+      if (account === ethers.ZeroAddress) getAccounts();
+      const abi = require("./abi/SimpleAccountFactory.json");
+      const factoryContract = new web3.eth.Contract(
+        abi,
+        process.env.REACT_APP_ACCOUNT_FACTORY_ADDRESS
+      );
+      const res = await factoryContract.methods.getAddress(account, "0").call();
+      if (res === "0x82d117f06D5FB3bBa93B28C20Fc626Ab2d17404E") {
+        alert('CA 주소 읽기 실패로 화면을 새로고침 합니다.');
+        window.location.reload();
+      }
+      if (res) {
+        setUserOp({ ...userOp, sender: res })
+        setSACaddress(res)
+      }
+      // console.log(res)
+      return res;
+
+    } catch (error) {
+      console.log(error);
     }
-    // console.log(res)
-    return res;
   };
 
-  const deploySCA = async () => {
-    const sender = scaAddress;
-    if (sender === ethers.ZeroAddress) sender = await getSCAAddress();
+  const deploySAC = async () => {
+    const sender = sacAddress;
+    if (sender === ethers.ZeroAddress) sender = await getSACAddress();
     const initcode = process.env.REACT_APP_ACCOUNT_FACTORY_ADDRESS + "5fbfb9cf000000000000000000000000" + account.slice(2) + "0000000000000000000000000000000000000000000000000000000000000000"
-    // const params = {
-    //   sender: scaAddress,
-    //   nonce: "0x0",
-    //   initCode: initcode,
-    //   callData: "0x",
-    //   callGasLimit: "0x238c",
-    //   verificationGasLimit: "0x60b15",
-    //   preVerificationGas: "0xab90",
-    //   maxFeePerGas: "0xfffffffff",
-    //   maxPriorityFeePerGas: "0xffffffff",
-    //   signature:
-    //     "0xfffffffffffffffffffffffffffffff0000000000000000000000000000000007aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa1c",
-    //   paymasterAndData: "0x",
-    // };
+
     let params = { ...userOp, sender: sender, nonce: "0x0", initCode: initcode }
     const res = await fetchEstimateGas(params);
     console.log(res);
@@ -196,7 +188,7 @@ function App() {
     const provider = new ethers.BrowserProvider(window.ethereum);
     const signer = await provider.getSigner();
     const entry = new ethers.Contract(entryAddress, config.ENTRYPOINT_ARTIFACT.abi, signer);
-    const result = await entry.getNonce(scaAddress, "0");
+    const result = await entry.getNonce(sacAddress, "0");
     let nn = ethers.toBeHex(result);
     setNonce(nn);
     setUserOp({ ...userOp, nonce: nn })
@@ -205,21 +197,30 @@ function App() {
   };
 
   const createCallData = async () => {
-    const msgabi = require("./abi/messageContract.json");
-    const accountABI = new ethers.Interface([
-      "function execute(address dest, uint256 value, bytes calldata func)",
-    ]);
+    try {
+      if (Inputs?.length <= 0) {
+        alert('전송할 메세지를 입력해주세요');
+        return;
+      }
+      const msgabi = require("./abi/messageContract.json");
+      const accountABI = new ethers.Interface([
+        "function execute(address dest, uint256 value, bytes calldata func)",
+      ]);
 
-    const calldata = accountABI.encodeFunctionData("execute", [
-      targetAddr,
-      ethers.ZeroAddress,
-      new ethers.Interface(msgabi).encodeFunctionData(method, [Inputs]),
-    ]);
-    setCallData(calldata);
-    setUserOp({ ...userOp, callData: calldata })
-    // const initcode = process.env.REACT_APP_ACCOUNT_FACTORY_ADDRESS + "5fbfb9cf000000000000000000000000" + account.slice(2) + "0000000000000000000000000000000000000000000000000000000000000000"
-    // setUserOp({ ...userOp, initCode: initcode, callData: calldata });
-    return calldata;
+      const calldata = accountABI.encodeFunctionData("execute", [
+        targetAddr,
+        ethers.ZeroAddress,
+        new ethers.Interface(msgabi).encodeFunctionData(method, [Inputs]),
+      ]);
+      setCallData(calldata);
+      setUserOp({ ...userOp, callData: calldata })
+      // const initcode = process.env.REACT_APP_ACCOUNT_FACTORY_ADDRESS + "5fbfb9cf000000000000000000000000" + account.slice(2) + "0000000000000000000000000000000000000000000000000000000000000000"
+      // setUserOp({ ...userOp, initCode: initcode, callData: calldata });
+      return calldata;
+
+    } catch (error) {
+      console.log(error);
+    }
   };
 
   const signCustomCallData = async () => {
@@ -227,10 +228,10 @@ function App() {
       if (!funcABI) throw new Error(`function ABI ERROR`);
 
       let cUserOp = initUserOp;
-      cUserOp = { ...cUserOp, sender: scaAddress };
+      cUserOp = { ...cUserOp, sender: sacAddress };
       const abi = require("./abi/entrypoint_abi.json");
       const entryContract = new web3.eth.Contract(abi, entryAddress);
-      const nonce = await entryContract.methods.getNonce(scaAddress, "0").call();
+      const nonce = await entryContract.methods.getNonce(sacAddress, "0").call();
       cUserOp.nonce = web3.utils.toHex(nonce);
 
       const accountABI = new ethers.Interface([
@@ -326,20 +327,19 @@ function App() {
     return Object.assign(Object.assign({}, op), { signature });
   };
 
-  // const signTx = async () => {
-  //   const data = ""
-  //   const sign = await window.ethereum.request({
-  //     method: 'personal_sign',
-  //     params: [data, account],
-  //   });
-  //   return sign;
-  // };
-
   const sendOp = async (signed) => {
     let param = signed ? signed : userOp
     console.log(param)
     const res = await fetchAlchemy("eth_sendUserOperation", param)
     console.log(res)
+    setInputs("");
+    setCallData("");
+    setUserOp(initUserOp);
+    setNonce('-');
+    setGas();
+    setBalance('0');
+    setPaymasterAndData("");
+    setbalOfERC20(0);
   };
 
   async function getUserOpHash(userOp) {
@@ -397,9 +397,9 @@ function App() {
 
   const fetchAlchemy = async (method, params) => {
     if (params.sender === ethers.ZeroAddress) {
-      let sca = await getSCAAddress()
-      setSCAaddress(sca)
-      params = { ...params, sender: sca }
+      let sac = await getSACAddress()
+      setSACaddress(sac)
+      params = { ...params, sender: sac }
     }
     if (params.nonce === "0x") {
       let nc = await getNonce()
@@ -434,26 +434,6 @@ function App() {
       .catch((err) => { alert(err); console.error(err) });
   }
 
-  const contractCreationTest = async () => {
-    try {
-      console.log("TESTING CONTRACT DEPLOY");
-      const provider = new ethers.BrowserProvider(window.ethereum);
-      const signer = await provider.getSigner();
-      // const msgSenderFactory = new ethers.ContractFactory(artifact.abi, artifact.bytecode, signer);
-      // const msgSender = await msgSenderFactory.deploy();
-      // const provider = new ethers.BrowserProvider(window.ethereum);
-
-      if (!entryAddress) alert("ENTRYPOINT 주소가 비어있습니다");
-      if (!config.ACCOUNT_FACTORY_ADDRESS) alert("ACCOUNT_FACTORY 주소가 비어있습니다");
-      const paymasterFactory = new ethers.ContractFactory(config?.PAYMASTER_ARTIFACT?.abi, config?.PAYMASTER_ARTIFACT?.bytecode, signer);
-      const paymaster = await paymasterFactory.deploy(config?.ACCOUNT_FACTORY_ADDRESS, "INN", entryAddress);
-      console.log(paymaster);
-
-    } catch (error) {
-      console.log(error);
-    }
-  }
-
   function generatePaymasterAndData(tokenPrice) {
     let pd;
     if (tokenPrice != null) {
@@ -478,7 +458,7 @@ function App() {
       const signer = new ethers.Wallet(process.env.REACT_APP_ACCOUNT_PRIVATE_KEY, provider);
       // signer.get
       const paymaster = new ethers.Contract(config?.PAYMASTER_ADDRESS, config?.PAYMASTER_ARTIFACT?.abi, signer);
-      const result = await paymaster.mintTokens(scaAddress, amount);
+      const result = await paymaster.mintTokens(sacAddress, amount);
       console.log(result);
     } catch (error) {
       console.log(error);
@@ -487,11 +467,11 @@ function App() {
 
   async function getBalanceOfPaymasterErc20() {
     try {
-      if (scaAddress === ethers.ZeroAddress) alert("SCA ADDRESS is empty");
+      if (sacAddress === ethers.ZeroAddress) alert("SAC ADDRESS is empty");
       const provider = new ethers.BrowserProvider(window.ethereum);
       const signer = await provider.getSigner();
       const paymaster = new ethers.Contract(config?.PAYMASTER_ADDRESS, config?.PAYMASTER_ARTIFACT?.abi, signer);
-      const result = await paymaster.balanceOf(scaAddress);
+      const result = await paymaster.balanceOf(sacAddress);
       console.log(Number(result));
       setbalOfERC20(Number(result));
     } catch (error) {
@@ -517,14 +497,6 @@ function App() {
     console.log(result);
   }
 
-  async function sendMsg() {
-    const provider = new ethers.BrowserProvider(window.ethereum);
-    const signer = await provider.getSigner();
-    const msgContract = new ethers.Contract(config?.MESSAGE_SENDER_ADDRESS, config?.MESSAGE_SENDER_ARTIFACT?.abi, signer);
-    const result = await msgContract.setMessage("DIRECT SEND");
-    console.log(result);
-  }
-
   async function depositTo() {
     try {
       if (entryAddress === ethers.ZeroAddress) {
@@ -534,11 +506,11 @@ function App() {
       const provider = new ethers.BrowserProvider(window.ethereum);
       const signer = await provider.getSigner();
       const entrypoint = new ethers.Contract(entryAddress, config.ENTRYPOINT_ARTIFACT.abi, signer);
-      const balance = await entrypoint.balanceOf(scaAddress);
+      const balance = await entrypoint.balanceOf(sacAddress);
       console.log(balance);
-      const result = await entrypoint.depositTo(scaAddress, { value: ethers.parseEther('0.1') });
+      const result = await entrypoint.depositTo(sacAddress, { value: ethers.parseEther('0.1') });
       console.log(result);
-      const balanceAfter = await entrypoint.balanceOf(scaAddress);
+      const balanceAfter = await entrypoint.balanceOf(sacAddress);
       console.log(balanceAfter);
 
     } catch (error) {
@@ -551,7 +523,7 @@ function App() {
       const provider = new ethers.BrowserProvider(window.ethereum);
       const signer = await provider.getSigner();
       const entrypoint = new ethers.Contract(entryAddress, config.ENTRYPOINT_ARTIFACT.abi, signer);
-      const bal = await entrypoint.balanceOf(scaAddress);
+      const bal = await entrypoint.balanceOf(sacAddress);
       // alert(bal);
       setBalance(Number(bal));
       console.log(bal);
@@ -559,6 +531,59 @@ function App() {
       console.log(error);
     }
   }
+
+  // TEST FUNCTION
+  async function directExecute() {
+    try {
+      const provider = new ethers.BrowserProvider(window.ethereum);
+      const signer = await provider.getSigner();
+      const simpleAccountContract = new ethers.Contract(sacAddress, config?.SIMPLE_ACCOUNT_ARTIFACT?.abi, signer);
+      const msgabi = require("./abi/messageContract.json");
+      const callData = new ethers.Interface(msgabi).encodeFunctionData("setMessage", ["직접 실행되나요"]);
+      const result = await simpleAccountContract.execute(targetAddr, 0, callData);
+      console.log(result);
+
+    } catch (error) {
+      console.log(error);
+    }
+  }
+
+  async function sendMsg() {
+    const provider = new ethers.BrowserProvider(window.ethereum);
+    const signer = await provider.getSigner();
+    const msgContract = new ethers.Contract(config?.MESSAGE_SENDER_ADDRESS, config?.MESSAGE_SENDER_ARTIFACT?.abi, signer);
+    const result = await msgContract.setMessage("DIRECT SEND");
+    console.log(result);
+  }
+
+  const contractCreationTest = async () => {
+    try {
+      console.log("TESTING CONTRACT DEPLOY");
+      const provider = new ethers.BrowserProvider(window.ethereum);
+      const signer = await provider.getSigner();
+      // const msgSenderFactory = new ethers.ContractFactory(artifact.abi, artifact.bytecode, signer);
+      // const msgSender = await msgSenderFactory.deploy();
+      // const provider = new ethers.BrowserProvider(window.ethereum);
+
+      if (!entryAddress) alert("ENTRYPOINT 주소가 비어있습니다");
+      if (!config.ACCOUNT_FACTORY_ADDRESS) alert("ACCOUNT_FACTORY 주소가 비어있습니다");
+      const paymasterFactory = new ethers.ContractFactory(config?.PAYMASTER_ARTIFACT?.abi, config?.PAYMASTER_ARTIFACT?.bytecode, signer);
+      const paymaster = await paymasterFactory.deploy(config?.ACCOUNT_FACTORY_ADDRESS, "INN", entryAddress);
+      console.log(paymaster);
+
+    } catch (error) {
+      console.log(error);
+    }
+  }
+
+  // const signTx = async () => {
+  //   const data = ""
+  //   const sign = await window.ethereum.request({
+  //     method: 'personal_sign',
+  //     params: [data, account],
+  //   });
+  //   return sign;
+  // };
 
   return (
     <div className="App">
@@ -577,44 +602,47 @@ function App() {
           </Tooltip>
         </Box>
         <Box width={"700px"} alignSelf={"flex-start"} borderWidth='5px' borderRadius='lg' padding={"5px"} borderColor={"orange.300"}>
-          <Tooltip hasArrow placement="right-end" label={TOOLTIP_DEPLOY_SCA} bg='orange.600'>
+          <Tooltip hasArrow placement="right-end" label={TOOLTIP_DEPLOY_SAC} bg='orange.600'>
             <Flex flexDirection={"column"} alignItems={"center"} gap={"5px"}>
               <Text>Deploy Simple Contract Account // balance:[{(balance / 10 ** 18).toFixed(4)}]</Text>
               <Divider />
               <Flex gap={"10px"}>
                 <BTN onClickFunc={getBalance} name="getBalance" />
                 <BTN onClickFunc={depositTo} name="Deposit 0.1 ETH" />
-                <BTN onClickFunc={deploySCA} name="SCA 배포" />
+                <BTN onClickFunc={deploySAC} name="SAC 배포" />
               </Flex>
             </Flex>
           </Tooltip>
         </Box>
 
-        <Tooltip hasArrow placement="right-end" label={TOOLTIP_INFO_TABLE} bg='yellow.600'>
-          <TableContainer width={"700px"} borderWidth='5px' borderRadius='lg' padding={"5px"} borderColor={"yellow.300"}>
-            <Text>Info Table</Text>
-            <Table variant='simple'>
-              <Tbody>
-                <Tr>
-                  <Td>ChainId</Td>
-                  <Td>{chainId}</Td>
-                </Tr>
-                <Tr>
-                  <Td>연결된 지갑주소</Td>
-                  <Td>{account}</Td>
-                </Tr>
-                <Tr>
-                  <Td>매칭되는 SCA 주소</Td>
-                  <Td>{scaAddress}</Td>
-                </Tr>
-                <Tr>
-                  <Td>EntryPoint Address</Td>
-                  <Td>{entryAddress}</Td>
-                </Tr>
-              </Tbody>
-            </Table>
-          </TableContainer>
-        </Tooltip>
+        <Box width={"700px"} alignSelf={"flex-start"} borderWidth='5px' borderRadius='lg' padding={"5px"} borderColor={"yellow.300"}>
+          <Text>Info Table</Text>
+          <Divider />
+          <Tooltip hasArrow placement="right-end" label={TOOLTIP_INFO_TABLE} bg='yellow.600'>
+            <TableContainer width={"700px"} >
+              <Table variant='simple'>
+                <Tbody>
+                  <Tr>
+                    <Td>ChainId</Td>
+                    <Td>{chainId}</Td>
+                  </Tr>
+                  <Tr>
+                    <Td>연결된 지갑 주소</Td>
+                    <Td>{account}</Td>
+                  </Tr>
+                  <Tr>
+                    <Td>Simple Account Contract 주소</Td>
+                    <Td>{sacAddress}</Td>
+                  </Tr>
+                  <Tr>
+                    <Td>EntryPoint Address</Td>
+                    <Td>{entryAddress}</Td>
+                  </Tr>
+                </Tbody>
+              </Table>
+            </TableContainer>
+          </Tooltip>
+        </Box>
 
         <Tooltip hasArrow placement="right-end" label={TOOLTIP_DEST_CONTRACT_CALL} bg='green.600'>
           <Box width={"700px"} alignSelf={"flex-start"} borderWidth='5px' borderRadius='lg' padding={"5px"} borderColor={"green.300"}>
@@ -668,7 +696,7 @@ function App() {
 
               <Box>
                 <Flex gap={"10px"}>
-                  <BTN onClickFunc={getNonce} name="SCA Nonce 조회" />
+                  <BTN onClickFunc={getNonce} name="SAC Nonce 조회" />
                   <Text width={"300px"} >{`nonce : ${nonce}`}</Text>
                 </Flex>
               </Box>
@@ -714,7 +742,7 @@ function App() {
         <Tooltip hasArrow placement="right-end" label={TOOLTIP_CUSTOM_CALL} bg='blue.700'>
           <Box width={"700px"} alignSelf={"flex-start"} borderWidth='5px' borderRadius='lg' padding={"5px"} borderColor={"blue.700"}>
             <Flex flexDirection={"column"} alignItems={"flex-start"} gap={"5px"}>
-              <Text>커스텀 콜 데이터</Text>
+              <Text>Estimate Fee & Sign & Send</Text>
               <Divider />
 
               <Flex gap={"10px"}>
@@ -735,7 +763,7 @@ function App() {
             <Text>Destination Contract Call</Text>
             <Divider />
             <Flex gap={"10px"}>
-              <GetOwnerBTN scaAddress={scaAddress} />
+              <GetOwnerBTN sacAddress={sacAddress} />
               <GetMsgBTN contractAddress={targetAddr} />
             </Flex>
           </Flex>
@@ -813,7 +841,7 @@ function App() {
             <Divider />
             <Flex gap={"10px"}>
               <BTN onClickFunc={contractCreationTest} name="TestBTN1" />
-              <BTN onClickFunc={sendMsg} name="TestBTN2" />
+              <BTN onClickFunc={directExecute} name="TestBTN2" />
             </Flex>
           </Flex>
         </Box>

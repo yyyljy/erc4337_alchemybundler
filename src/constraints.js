@@ -22,7 +22,7 @@ export const TOOLTIP_INIT = <label>
   - Bundler가 바라보는 EntryPoint 주소 조회<br />
 </label>
 
-export const TOOLTIP_DEPLOY_SCA = <label>
+export const TOOLTIP_DEPLOY_SAC = <label>
   SIMPLE CONTRACT ACCOUNT 배포<br />
   - 절차 -<br />
   1. "Deposit 0.1 ETH" 버튼 클릭<br />
@@ -30,7 +30,7 @@ export const TOOLTIP_DEPLOY_SCA = <label>
   - 배포에 필요한 Gas Fee를 미리 예치하는 과정<br /><br />
   2. "getBalance" 버튼 클릭<br />
   - EntryPoint에 AA주소로 예치된 잔고 조회<br /><br />
-  3. "SCA 배포" 버튼 클릭<br />
+  3. "SAC 배포" 버튼 클릭<br />
   - initCode를 담은 userOp를 생성&서명&전송<br />
 </label>
 
@@ -39,7 +39,7 @@ export const TOOLTIP_INFO_TABLE = <label>
   - 현재 지갑에서 선택된 Network ID<br /><br />
   "연결된 지갑주소"<br />
   - 연결된 지갑의 EOA 주소<br /><br />
-  "매칭되는 SCA 주소"<br />
+  "매칭되는 SAC 주소"<br />
   - 연결된 지갑과 매칭되는 AA 주소<br /><br />
   "EntryPoint Address"<br />
   - EntryPoint 주소<br />
@@ -54,7 +54,7 @@ export const TOOLTIP_DEST_CONTRACT_CALL = <label>
   - 호출할 함수의 입력 값<br /><br />
   "callData 생성"<br />
   - userOp의 callData 값 생성<br /><br />
-  "SCA Nonce 조회"<br />
+  "SAC Nonce 조회"<br />
   - EntryPoint를 통해 AA Nonce값 조회<br /><br />
 </label>
 

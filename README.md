@@ -39,12 +39,12 @@ REACT_APP_MUMBAI_CONTRACT = "예시를 위해 MUMBAI에 사전 배포해둔 DEST
 REACT_APP_SEPOLIA_CONTRACT = "예시를 위해 SEPOLIA에 사전 배포해둔 DESTINATION CONTRACT ADDRESS"
 ```
 
-## Deploy SCA 순서
+## Deploy SAC 순서
 
-1. SimpleAccountFactory에서 getAddress(address, salt)로 SCA 주소를 미리 확인
+1. SimpleAccountFactory에서 getAddress(address, salt)로 SAC 주소를 미리 확인
 
    - address는 EOA 지갑주소, salt는 시드값 (일반적으론 nonce or 0)
-   - salt는 CREATE2에서 SCA Address를 생성하기 위해 사용됨
+   - salt는 CREATE2에서 SAC Address를 생성하기 위해 사용됨
    - [CREATE2 참고자료](https://docs.openzeppelin.com/cli/2.8/deploying-with-create2)
 
 2. Gas Fee 지불을 위해 Entrypoint의 depositTo(0xb760faf9) 함수를 호출하여 AA Contract에 Deposit
@@ -59,9 +59,9 @@ REACT_APP_SEPOLIA_CONTRACT = "예시를 위해 SEPOLIA에 사전 배포해둔 DE
 
 4. 2번에서 return 받은 gas 값을 userOp에 세팅
 
-5. paymaster(대납자)가 없는 경우 EntryPoint의 depositTo() 함수를 통해 SCA에 balance를 deposit 해줘야함.
+5. paymaster(대납자)가 없는 경우 EntryPoint의 depositTo() 함수를 통해 SAC에 balance를 deposit 해줘야함.
 
-   메타마스크에서 SCA에 직접 보내도 됨(Metamask - Mumbai 테스트 완료)
+   메타마스크에서 SAC에 직접 보내도 됨(Metamask - Mumbai 테스트 완료)
 
 6. userOp에 signature값 생성 후 세팅하여 eth_sendUserOperation 호출
 
@@ -94,7 +94,7 @@ Function Call Code : 5fbfb9cf000000000000000000000000
 Ref.https://eips.ethereum.org/EIPS/eip-4337
 
 1. initCode
-   - sender가 이미 deploy된 SCA인 경우 `0x`
+   - sender가 이미 deploy된 SAC인 경우 `0x`
 2. callData
    - deploy만 하는 경우 `0x`
 3. gas
@@ -119,9 +119,9 @@ Ref.https://eips.ethereum.org/EIPS/eip-4337
   "paymasterAndData": "0x"
 }
 ```
-- sender : SCA Address
-- nonce : SCA의 nonce
-   - Entrypoint.getNonce(`address` = SCA address, `key` = 보통 0)
+- sender : SAC Address
+- nonce : SAC의 nonce
+   - Entrypoint.getNonce(`address` = SAC address, `key` = 보통 0)
 - paymasterAndData : gas fee 대납자 address 및 data
 
 ### callData 구조
@@ -130,7 +130,7 @@ callData Sample
 ```
 "0xb61d27f60000000000000000000000006de175459de142b3bcd1b63d3e07f21da48c7c14000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000600000000000000000000000000000000000000000000000000000000000000064368b877200000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000007777271777277650000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
 ```
-1. SCA의 execute 함수에 targetAddress, value, functionCallData 전달
+1. SAC의 execute 함수에 targetAddress, value, functionCallData 전달
 2. target Contract에서 functionCallData를 분석하여 함수 호출
 
 ### eth_sendUserOperation 호출
@@ -144,16 +144,16 @@ callData Sample
 
 ## UserOperation과 Signature의 Validation (SimpleAccount)
 
-1. SCA를 deploy한 EOA의 private key로 signature 생성
+1. SAC를 deploy한 EOA의 private key로 signature 생성
 2. Bundler가 UserOperation을 EntryPoint의 handleOps()에 전달
    - _validatePrepayment() 호출
       - getUserOpHash()로 UserOpHash생성
       - _validateAccountPrepayment() 호출
-         - SCA의 validateUserOp(userOp, userOpHash) 호출
+         - SAC의 validateUserOp(userOp, userOpHash) 호출
             - _validateSignature(userOp, userOpHash) 호출
             - userOpHash로 hash값 생성
             - hash값과 userOp.signature로 public key 생성
-            - SCA의 owner와 public key 일치여부 판단
+            - SAC의 owner와 public key 일치여부 판단
 
 ## RPC methods
 
@@ -166,11 +166,11 @@ callData Sample
 
 ## Trouble Shooting
 
-### deploy SCA (initCode 관련)
+### deploy SAC (initCode 관련)
 ```
 AA14 initCode must return sender
 - 원인 : initcode 바탕으로 생성된 address와 userOp의 sender가 불일치함
-- initcode 올바르게 작성 + sender에 SCA address 넣기
+- initcode 올바르게 작성 + sender에 SAC address 넣기
 ```
 
 ### eth_estimateUserOperationGas
@@ -231,15 +231,20 @@ signing transactions is unsupported
 1. .env파일 저장 및 변수 선언
 2. metamask 로그인
 3. fetchEntryPoint 함수 호출 확인 (개발자도구 콘솔)
-4. deploySCA (SCA 최초 생성 시)
-5. balance 관련 오류 발생 시 SCA 주소로 Matic 전송
-6. deploySCA 재시도
+4. deploySAC (SAC 최초 생성 시)
+5. balance 관련 오류 발생 시 SAC 주소로 Matic 전송
+6. deploySAC 재시도
 7. inputs에 원하는 메세지 작성
 8. getNonce -> createCallData -> fetchEstimateGas -> signUserOp
 9. 아래 textarea영역에 userOp값 확인 후 sendOp
 10. 콘솔창 userOpHash값 확인 및 [targetAddress Events 확인](https://mumbai.polygonscan.com/address/0x6de175459DE142b3bcd1B63d3E07F21Da48c7c14#events)
 ![Alt text](./readmeAssets/userOpSendSuccessResult.png)
 ![Alt text](./readmeAssets/sendMsgResult.png)
+
+## FAQ
+1. Simple Account Contract의 execute함수를 직접 호출해도 되나요?
+- 네. 해당 Contract의 Owner 또는 Entrypoint가 호출하는 경우 execute함수를 실행할 수 있습니다.
+- 다만 이 경우에는 Gas Fee를 `owner EOA`가 부담하며, Tx의 `From`도 `owner EOA`가 됩니다.
 
 ## 참고 자료
 1. [EIP-4337](https://eips.ethereum.org/EIPS/eip-4337)

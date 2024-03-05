@@ -10,6 +10,7 @@ const con = {
   ENTRYPOINT_ARTIFACT: require("../src/abi/entrypoint.json"),
   MESSAGE_SENDER_ARTIFACT: require("../src/abi/MessageSender.json"),
   PAYMASTER_ARTIFACT: require("../src/abi/LegacyTokenPaymaster.json"),
+  SIMPLE_ACCOUNT_ARTIFACT: require("../src/abi/SimpleAccount.json")
 }
 
 const SEPOLIA = ["11155111", "0xaa36a7"];
