@@ -475,7 +475,7 @@ function App() {
     try {
       const provider = new ethers.BrowserProvider(window.ethereum);
       // const signer = await provider.getSigner();
-      const signer = new ethers.Wallet("f03e13869ab65bf1f295ac645dc52225a1fc0931df0f9af56bfe9517c5cc8a60", provider);
+      const signer = new ethers.Wallet(process.env.REACT_APP_ACCOUNT_PRIVATE_KEY, provider);
       // signer.get
       const paymaster = new ethers.Contract(config?.PAYMASTER_ADDRESS, config?.PAYMASTER_ARTIFACT?.abi, signer);
       const result = await paymaster.mintTokens(scaAddress, amount);
