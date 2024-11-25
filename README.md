@@ -3,6 +3,7 @@
 #### 본 자료는 Alchemy Bundler, Infinitism의 account-abstraction을 참고하여 작성했습니다.
 
 ## Run
+
 install metamask
 
 .env-copy -> .env로 파일명 변경 및 파일 내용 수정
@@ -26,11 +27,12 @@ npm run start
 "0x9406Cc6185a346906296840746125a0E44976454"
 
 ## .env
+
 ```
 REACT_APP_ENTRYPOINT_ADDRESS = "ENTRYPOINT CONTRACT ADDRESS"
 REACT_APP_ACCOUNT_FACTORY_ADDRESS = "AA를 배포할 FACTORY CONTRACT ADDRESS"
-REACT_APP_ALCHEMY_API_KEY = "ALCHEMY BUNDLER를 사용하기 위한 ALCHEMY KEY 값"
-REACT_APP_SEPOLIA_API_KEY = "SEPOLIA에 CONTRACT를 배포하기 위한 ALCHEMY KEY 값"
+REACT_APP_ALCHEMY_MUMBAI_API_KEY = "ALCHEMY BUNDLER를 사용하기 위한 ALCHEMY KEY 값"
+REACT_APP_ALCHEMY_SEPOLIA_API_KEY = "SEPOLIA에 CONTRACT를 배포하기 위한 ALCHEMY KEY 값"
 
 REACT_APP_MUMBAI_PAYMASTER_ADDRESS="MUMBAI NETWORK에 배포한 PAYMASTER CONTRACT ADDRESS"
 REACT_APP_SEPOLIA_PAYMASTER_ADDRESS="SEPOLIA NETWORK에 배포한 PAYMASTER CONTRACT ADDRESS"
@@ -48,7 +50,7 @@ REACT_APP_SEPOLIA_CONTRACT = "예시를 위해 SEPOLIA에 사전 배포해둔 DE
    - [CREATE2 참고자료](https://docs.openzeppelin.com/cli/2.8/deploying-with-create2)
 
 2. Gas Fee 지불을 위해 Entrypoint의 depositTo(0xb760faf9) 함수를 호출하여 AA Contract에 Deposit
-   
+
    - ex ) depositTo(0.03, 1번에서 추출한 CA)
 
 3. initCode를 세팅한 UserOp를 작성 후 eth_estimateUserOperationGas 호출
@@ -68,10 +70,12 @@ REACT_APP_SEPOLIA_CONTRACT = "예시를 위해 SEPOLIA에 사전 배포해둔 DE
 ### Example Data
 
 #### initCode Sample
+
 ```
 ops.sender : 0xf88Af9e8A2FE1453970891aE031Ad77FD6D2CB44
 ops.initCode : 0x9406cc6185a346906296840746125a0e449764545fbfb9cf000000000000000000000000f9ce4d8b7800e6000a370c399ea4a63312926fb10000000000000000000000000000000000000000000000000000000000000000
 ```
+
 #### initCode 구조
 
 Sender(AA Contract) : 0x9406cc6185a346906296840746125a0e44976454
@@ -83,8 +87,6 @@ Function Call Code : 5fbfb9cf000000000000000000000000
     - uint256 Max -> Hex = 0xfff... (f가 256/4 = 64자리)
 
 #### [example Tx](https://mumbai.polygonscan.com/tx/0xb6a87876937da48bb9e1d7e58145851057f05bd8b2af82aed158b02a3b8d1347)
-
-
 
 ## eth_sendUserOperation과 signature
 
@@ -104,6 +106,7 @@ Ref.https://eips.ethereum.org/EIPS/eip-4337
    - 직접 지불인 경우 `0x`
 
 ### userOperation Sample
+
 ```
 {
   "sender": "0x74dbFB665536AcE9E65b6c9ff5bE1D99AA78eEA8",
@@ -119,17 +122,20 @@ Ref.https://eips.ethereum.org/EIPS/eip-4337
   "paymasterAndData": "0x"
 }
 ```
+
 - sender : SAC Address
 - nonce : SAC의 nonce
-   - Entrypoint.getNonce(`address` = SAC address, `key` = 보통 0)
+  - Entrypoint.getNonce(`address` = SAC address, `key` = 보통 0)
 - paymasterAndData : gas fee 대납자 address 및 data
 
 ### callData 구조
 
 callData Sample
+
 ```
 "0xb61d27f60000000000000000000000006de175459de142b3bcd1b63d3e07f21da48c7c14000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000600000000000000000000000000000000000000000000000000000000000000064368b877200000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000007777271777277650000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
 ```
+
 1. SAC의 execute 함수에 targetAddress, value, functionCallData 전달
 2. target Contract에서 functionCallData를 분석하여 함수 호출
 
@@ -146,14 +152,14 @@ callData Sample
 
 1. SAC를 deploy한 EOA의 private key로 signature 생성
 2. Bundler가 UserOperation을 EntryPoint의 handleOps()에 전달
-   - _validatePrepayment() 호출
-      - getUserOpHash()로 UserOpHash생성
-      - _validateAccountPrepayment() 호출
-         - SAC의 validateUserOp(userOp, userOpHash) 호출
-            - _validateSignature(userOp, userOpHash) 호출
-            - userOpHash로 hash값 생성
-            - hash값과 userOp.signature로 public key 생성
-            - SAC의 owner와 public key 일치여부 판단
+   - \_validatePrepayment() 호출
+     - getUserOpHash()로 UserOpHash생성
+     - \_validateAccountPrepayment() 호출
+       - SAC의 validateUserOp(userOp, userOpHash) 호출
+         - \_validateSignature(userOp, userOpHash) 호출
+         - userOpHash로 hash값 생성
+         - hash값과 userOp.signature로 public key 생성
+         - SAC의 owner와 public key 일치여부 판단
 
 ## RPC methods
 
@@ -167,6 +173,7 @@ callData Sample
 ## Trouble Shooting
 
 ### deploy SAC (initCode 관련)
+
 ```
 AA14 initCode must return sender
 - 원인 : initcode 바탕으로 생성된 address와 userOp의 sender가 불일치함
@@ -180,6 +187,7 @@ AA14 initCode must return sender
 ### eth_sendUserOperation
 
 ### paymaster
+
 ```
 Cannot read properties of undefined (reading 'paymaster')
 - 원인 : provider와 signer 정보를 전달 하지 않아서 문제 발생
@@ -190,6 +198,7 @@ Cannot read properties of undefined (reading 'paymaster')
 ```
 
 ### Bundler 관련
+
 ```
 unable to parse transaction
 - 원인 : UserOpMethodHandler.ts에서 EntryPoint.attach contract Address와 this.entry.address 대소문자 차이
@@ -204,6 +213,7 @@ unable to parse transaction
       throw new Error('unable to parse transaction')
    }
 ```
+
 ```
 Account-Abstraction Bundler v.0.6.0. please use "/rpc"
 - 원인 : bundler에게 전송 시 url 값 오류
@@ -214,6 +224,7 @@ Account-Abstraction Bundler v.0.6.0. please use "/rpc"
 ```
 
 ### hardhat & ethers.js & web3.js 등 개발 관련
+
 <pre>
 signing transactions is unsupported
 - 원인 : ethers.getSigners() 로 생성한 객체는 signing이 불가능함.
@@ -227,7 +238,9 @@ signing transactions is unsupported
 </pre>
 
 ### 테스트 및 확인 방법
+
 ![Alt text](./readmeAssets/frontInit.png)
+
 1. .env파일 저장 및 변수 선언
 2. metamask 로그인
 3. fetchEntryPoint 함수 호출 확인 (개발자도구 콘솔)
@@ -238,15 +251,18 @@ signing transactions is unsupported
 8. getNonce -> createCallData -> fetchEstimateGas -> signUserOp
 9. 아래 textarea영역에 userOp값 확인 후 sendOp
 10. 콘솔창 userOpHash값 확인 및 [targetAddress Events 확인](https://mumbai.polygonscan.com/address/0x6de175459DE142b3bcd1B63d3E07F21Da48c7c14#events)
-![Alt text](./readmeAssets/userOpSendSuccessResult.png)
-![Alt text](./readmeAssets/sendMsgResult.png)
+    ![Alt text](./readmeAssets/userOpSendSuccessResult.png)
+    ![Alt text](./readmeAssets/sendMsgResult.png)
 
 ## FAQ
+
 1. Simple Account Contract의 execute함수를 직접 호출해도 되나요?
+
 - 네. 해당 Contract의 Owner 또는 Entrypoint가 호출하는 경우 execute함수를 실행할 수 있습니다.
 - 다만 이 경우에는 Gas Fee를 `owner EOA`가 부담하며, Tx의 `From`도 `owner EOA`가 됩니다.
 
 ## 참고 자료
+
 1. [EIP-4337](https://eips.ethereum.org/EIPS/eip-4337)
 2. [Alchemy bundler Docs](https://docs.alchemy.com/reference/bundler-api-endpoints)
 3. [eth-infinitism/bundler](https://github.com/eth-infinitism/bundler)
