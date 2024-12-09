@@ -136,6 +136,21 @@ export const TOOLTIP_PAYMASTER = (
   </label>
 );
 
+export const TOOLTIP_SIGN_SEND = (
+  <label>
+    "Gas Fee Estimate"
+    <br />- 예상 가스비 조회
+    <br />
+    <br />
+    "UserOp 서명"
+    <br />- userOperation 사인
+    <br />
+    <br />
+    "UserOp 전송"
+    <br />- userOperation 전송
+  </label>
+);
+
 export const TOOLTIP_CUSTOM_CALL = (
   <label>
     "Destination CA"

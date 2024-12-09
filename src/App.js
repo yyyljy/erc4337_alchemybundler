@@ -1,38 +1,31 @@
+import BTN from "./components/atoms/Btn";
 import { useEffect, useState } from "react";
 import { ethers } from "ethers";
-import GetOwnerBTN from "./components/atoms/GetOwnerBTN";
-import GetMsgBTN from "./components/atoms/GetMsgBTN";
+import Initialize from "./components/Initialize";
+import DeploySAC from "./components/DeploySAC";
 import {
   Box,
   Flex,
   Input,
   Text,
-  Textarea,
-  Table,
-  Tbody,
-  Tr,
-  Td,
-  TableContainer,
-  FormControl,
-  FormLabel,
-  Switch,
   Divider,
   InputGroup,
   InputLeftAddon,
   Tooltip,
+  Textarea,
 } from "@chakra-ui/react";
-import BTN from "./components/atoms/Btn";
 
 import getConfig from "./config";
-import {
-  TOOLTIP_CUSTOM_CALL,
-  TOOLTIP_DEPLOY_SAC,
-  TOOLTIP_DEST_CONTRACT_CALL,
-  TOOLTIP_INFO_TABLE,
-  TOOLTIP_INIT,
-  TOOLTIP_PAYMASTER,
-  initUserOp,
-} from "./constraints";
+import { TOOLTIP_CUSTOM_CALL, initUserOp } from "./constraints";
+import { getChainId, getAccounts } from "./utils/ethereum";
+import GetOwnerBTN from "./components/atoms/GetOwnerBTN";
+import GetMsgBTN from "./components/atoms/GetMsgBTN";
+import InfoTable from "./components/InfoTable";
+import DestinationContractCall from "./components/DestinationContractCall";
+import PaymasterControl from "./components/PaymasterControl";
+import SignAndSend from "./components/SignAndSend";
+import DestinationContractActions from "./components/DestinationContractActions";
+import CustomCallData from "./components/CustomCallData";
 const { Web3 } = require("web3");
 
 function App() {
@@ -69,7 +62,7 @@ function App() {
     try {
       if (window.ethereum) {
         setWeb3(new Web3(window.ethereum));
-        getChainId().then((cid) => {
+        getChainId(setChainId).then((cid) => {
           console.log(cid);
           if (cid) {
             const cfg = getConfig(cid);
@@ -108,34 +101,9 @@ function App() {
   }, []);
 
   useEffect(() => {
-    // if (account !== ethers.ZeroAddress) getChainId();
-    if (account !== ethers.ZeroAddress && sacAddress === ethers.ZeroAddress)
-      getSACAddress();
-    // getSACAddress();
+    if (account === ethers.ZeroAddress) return;
+    getSACAddress();
   }, [account]);
-
-  const getChainId = async () => {
-    const currentChain = await window.ethereum.request({
-      method: "eth_chainId",
-    });
-    setChainId(currentChain);
-    return currentChain;
-  };
-
-  const getAccounts = async () => {
-    try {
-      if (window.ethereum) {
-        const accounts = await window.ethereum.request({
-          method: "eth_requestAccounts",
-        });
-        setAccount(accounts[0]);
-      } else {
-        alert("INSTALL METAMASK!!");
-      }
-    } catch (error) {
-      console.error(error);
-    }
-  };
 
   const fetchEntryPoint = async () => {
     try {
@@ -166,7 +134,8 @@ function App() {
 
   const getSACAddress = async () => {
     try {
-      if (account === ethers.ZeroAddress) getAccounts();
+      const acc = await getAccounts(setAccount);
+      if (acc === ethers.ZeroAddress) return;
       const abi = require("./abi/SimpleAccountFactory.json");
       const factoryContract = new web3.eth.Contract(
         abi,
@@ -181,7 +150,7 @@ function App() {
         setUserOp({ ...userOp, sender: res });
         setSACaddress(res);
       }
-      // console.log(res)
+
       return res;
     } catch (error) {
       console.log(error);
@@ -189,7 +158,7 @@ function App() {
   };
 
   const deploySAC = async () => {
-    const sender = sacAddress;
+    let sender = sacAddress;
     if (sender === ethers.ZeroAddress) sender = await getSACAddress();
     const initcode =
       process.env.REACT_APP_ACCOUNT_FACTORY_ADDRESS +
@@ -647,9 +616,6 @@ function App() {
       console.log("TESTING CONTRACT DEPLOY");
       const provider = new ethers.BrowserProvider(window.ethereum);
       const signer = await provider.getSigner();
-      // const msgSenderFactory = new ethers.ContractFactory(artifact.abi, artifact.bytecode, signer);
-      // const msgSender = await msgSenderFactory.deploy();
-      // const provider = new ethers.BrowserProvider(window.ethereum);
 
       if (!entryAddress) alert("ENTRYPOINT 주소가 비어있습니다");
       if (!config.ACCOUNT_FACTORY_ADDRESS)
@@ -670,324 +636,66 @@ function App() {
     }
   };
 
-  // const signTx = async () => {
-  //   const data = ""
-  //   const sign = await window.ethereum.request({
-  //     method: 'personal_sign',
-  //     params: [data, account],
-  //   });
-  //   return sign;
-  // };
-
   return (
     <div className="App">
       <Flex flexDirection={"column"} gap={"5px"}>
-        <Box
-          width={"700px"}
-          alignSelf={"flex-start"}
-          borderWidth="5px"
-          borderRadius="lg"
-          padding={"5px"}
-          borderColor={"red.300"}
-        >
-          <Tooltip
-            hasArrow
-            placement="right-end"
-            label={TOOLTIP_INIT}
-            bg="red.600"
-          >
-            <Flex flexDirection={"column"} alignItems={"center"} gap={"5px"}>
-              <Text>Initialize</Text>
-              <Divider />
-              <Flex gap={"10px"}>
-                <BTN onClickFunc={getAccounts} name={"지갑연결"} />
-                <BTN onClickFunc={fetchEntryPoint} name="EntryPoint CA 조회" />
-              </Flex>
-            </Flex>
-          </Tooltip>
-        </Box>
-        <Box
-          width={"700px"}
-          alignSelf={"flex-start"}
-          borderWidth="5px"
-          borderRadius="lg"
-          padding={"5px"}
-          borderColor={"orange.300"}
-        >
-          <Tooltip
-            hasArrow
-            placement="right-end"
-            label={TOOLTIP_DEPLOY_SAC}
-            bg="orange.600"
-          >
-            <Flex flexDirection={"column"} alignItems={"center"} gap={"5px"}>
-              <Text>
-                Deploy Simple Contract Account // balance:[
-                {(balance / 10 ** 18).toFixed(4)}]
-              </Text>
-              <Divider />
-              <Flex gap={"10px"}>
-                <BTN onClickFunc={getBalance} name="getBalance" />
-                <BTN onClickFunc={depositTo} name="Deposit 0.3 ETH" />
-                <BTN onClickFunc={deploySAC} name="SAC 배포" />
-              </Flex>
-            </Flex>
-          </Tooltip>
-        </Box>
+        <Initialize
+          getAccounts={getAccounts}
+          fetchEntryPoint={fetchEntryPoint}
+          setAccount={setAccount}
+          config={config}
+          setEntryAddress={setEntryAddress}
+        />
 
-        <Box
-          width={"700px"}
-          alignSelf={"flex-start"}
-          borderWidth="5px"
-          borderRadius="lg"
-          padding={"5px"}
-          borderColor={"yellow.300"}
-        >
-          <Text>Info Table</Text>
-          <Divider />
-          <Tooltip
-            hasArrow
-            placement="right-end"
-            label={TOOLTIP_INFO_TABLE}
-            bg="yellow.600"
-          >
-            <TableContainer width={"700px"}>
-              <Table variant="simple">
-                <Tbody>
-                  <Tr>
-                    <Td>ChainId</Td>
-                    <Td>{chainId}</Td>
-                  </Tr>
-                  <Tr>
-                    <Td>연결된 지갑 주소</Td>
-                    <Td>{account}</Td>
-                  </Tr>
-                  <Tr>
-                    <Td>Simple Account Contract 주소</Td>
-                    <Td>{sacAddress}</Td>
-                  </Tr>
-                  <Tr>
-                    <Td>EntryPoint Address</Td>
-                    <Td>{entryAddress}</Td>
-                  </Tr>
-                </Tbody>
-              </Table>
-            </TableContainer>
-          </Tooltip>
-        </Box>
+        <DeploySAC
+          getBalance={getBalance}
+          depositTo={depositTo}
+          deploySAC={deploySAC}
+          balance={balance}
+        />
 
-        <Tooltip
-          hasArrow
-          placement="right-end"
-          label={TOOLTIP_DEST_CONTRACT_CALL}
-          bg="green.600"
-        >
-          <Box
-            width={"700px"}
-            alignSelf={"flex-start"}
-            borderWidth="5px"
-            borderRadius="lg"
-            padding={"5px"}
-            borderColor={"green.300"}
-          >
-            <Text>Destination Contract Call</Text>
-            <Divider />
-            <Flex
-              flexDirection={"column"}
-              alignItems={"flex-start"}
-              gap={"5px"}
-            >
-              <InputGroup>
-                <InputLeftAddon width={"200px"}>Destination CA</InputLeftAddon>
-                <Input
-                  name="targetContractAddress"
-                  width={"500px"}
-                  onChange={(e) => {
-                    setTargetAddr(e.target.value);
-                  }}
-                  value={targetAddr}
-                  disabled={true}
-                ></Input>
-              </InputGroup>
+        <InfoTable
+          chainId={chainId}
+          account={account}
+          sacAddress={sacAddress}
+          entryAddress={entryAddress}
+        />
 
-              <InputGroup>
-                <InputLeftAddon width={"200px"}>Function Name</InputLeftAddon>
-                <Input
-                  name="method"
-                  value={method}
-                  width={"500px"}
-                  onChange={(e) => {
-                    setMethod(e.target.value);
-                  }}
-                  disabled={true}
-                ></Input>
-              </InputGroup>
+        <DestinationContractCall
+          targetAddr={targetAddr}
+          setTargetAddr={setTargetAddr}
+          method={method}
+          setMethod={setMethod}
+          Inputs={Inputs}
+          setInputs={setInputs}
+          createCallData={createCallData}
+          callData={callData}
+          getNonce={getNonce}
+          nonce={nonce}
+        />
 
-              <InputGroup>
-                <InputLeftAddon width={"200px"}>Inputs</InputLeftAddon>
-                <Input
-                  name="Inputs"
-                  width={"500px"}
-                  onChange={(e) => {
-                    setInputs(e.target.value);
-                  }}
-                  placeholder="전송할 메세지를 입력하세요"
-                ></Input>
-              </InputGroup>
+        <PaymasterControl
+          usePaymaster={usePaymaster}
+          setUsePaymaster={setUsePaymaster}
+          setUserOp={setUserOp}
+          generatePaymasterAndData={generatePaymasterAndData}
+          config={config}
+          mintPaymasterErc20={mintPaymasterErc20}
+          getBalanceOfPaymasterErc20={getBalanceOfPaymasterErc20}
+          balOfERC20={balOfERC20}
+          depositPaymaster={depositPaymaster}
+          addStake={addStake}
+          userOp={userOp}
+          setPaymasterAndData={setPaymasterAndData}
+        />
 
-              <Box>
-                <Flex gap={"10px"}>
-                  <BTN onClickFunc={createCallData} name="callData 생성" />
-                  <Text
-                    width={"300px"}
-                  >{`callData Length: ${callData?.length}`}</Text>
-                </Flex>
-              </Box>
-
-              <Box>
-                <Flex gap={"10px"}>
-                  <BTN onClickFunc={getNonce} name="SAC Nonce 조회" />
-                  <Text width={"300px"}>{`nonce : ${nonce}`}</Text>
-                </Flex>
-              </Box>
-            </Flex>
-          </Box>
-        </Tooltip>
-
-        <Tooltip
-          hasArrow
-          placement="right-end"
-          label={TOOLTIP_PAYMASTER}
-          bg="blue.600"
-        >
-          <Box
-            width={"700px"}
-            alignSelf={"flex-start"}
-            borderWidth="5px"
-            borderRadius="lg"
-            padding={"5px"}
-            borderColor={"blue.300"}
-          >
-            <Flex flexDirection={"column"} gap={"5px"}>
-              <Flex gap={"10px"}>
-                <FormControl display="flex" alignItems="center">
-                  <FormLabel htmlFor="email-alerts" mb="0">
-                    Use Paymaster?
-                  </FormLabel>
-                  <Switch
-                    mr={"10px"}
-                    id="email-alerts"
-                    onChange={(e) => {
-                      setUsePaymaster(e.target.checked);
-                      if (e.target.checked) {
-                        setUserOp({ ...userOp, signature: "" });
-                        generatePaymasterAndData("10");
-                      } else {
-                        setPaymasterAndData("");
-                        setUserOp({
-                          ...userOp,
-                          paymasterAndData: "0x",
-                          signature: "",
-                        });
-                      }
-                    }}
-                  />
-                </FormControl>
-                {`${config?.PAYMASTER_ADDRESS}`}
-              </Flex>
-              <Divider />
-              <Flex gap={"10px"}>
-                <BTN
-                  isDisabled={!usePaymaster}
-                  onClickFunc={() => {
-                    mintPaymasterErc20(1_000_000_000_000_000);
-                  }}
-                  name="Mint ERC20"
-                />
-                <BTN
-                  isDisabled={!usePaymaster}
-                  onClickFunc={() => {
-                    getBalanceOfPaymasterErc20();
-                  }}
-                  name="BalanceOf"
-                />
-                <label>{`balance : ${(Number(balOfERC20) / 10 ** 18).toFixed(
-                  6
-                )}`}</label>
-              </Flex>
-              <Flex gap={"10px"}>
-                <BTN
-                  isDisabled={!usePaymaster}
-                  onClickFunc={() => {
-                    depositPaymaster();
-                  }}
-                  name="Deposit Paymaster"
-                />
-                <BTN
-                  isDisabled={!usePaymaster}
-                  onClickFunc={() => {
-                    addStake();
-                  }}
-                  name="Add Stake"
-                />
-              </Flex>
-            </Flex>
-          </Box>
-        </Tooltip>
-
-        <Tooltip
-          hasArrow
-          placement="right-end"
-          label={TOOLTIP_CUSTOM_CALL}
-          bg="blue.700"
-        >
-          <Box
-            width={"700px"}
-            alignSelf={"flex-start"}
-            borderWidth="5px"
-            borderRadius="lg"
-            padding={"5px"}
-            borderColor={"blue.700"}
-          >
-            <Flex
-              flexDirection={"column"}
-              alignItems={"flex-start"}
-              gap={"5px"}
-            >
-              <Text>Estimate Fee & Sign & Send</Text>
-              <Divider />
-
-              <Flex gap={"10px"}>
-                <BTN
-                  onClickFunc={() => {
-                    fetchEstimateGas(userOp);
-                  }}
-                  name="Gas Fee Estimate"
-                />
-                <label>{`${
-                  !gas
-                    ? ""
-                    : JSON.stringify(gas).length < 60
-                    ? JSON.stringify(gas)
-                    : JSON.stringify(gas).slice(0, 60) + "..."
-                }`}</label>
-              </Flex>
-
-              <BTN
-                onClickFunc={() => {
-                  signUserOp(userOp);
-                }}
-                name="UserOp 서명"
-              />
-              <BTN
-                onClickFunc={() => {
-                  sendOp(userOp);
-                }}
-                name="UserOp 전송"
-              />
-            </Flex>
-          </Box>
-        </Tooltip>
+        <SignAndSend
+          userOp={userOp}
+          fetchEstimateGas={fetchEstimateGas}
+          gas={gas}
+          signUserOp={signUserOp}
+          sendOp={sendOp}
+        />
 
         <Textarea
           width={"700px"}
@@ -998,117 +706,23 @@ function App() {
           value={JSON.stringify(userOp, null, 2)}
         />
 
-        <Box
-          width={"700px"}
-          alignSelf={"flex-start"}
-          borderWidth="5px"
-          borderRadius="lg"
-          padding={"5px"}
-          borderColor={"blue.700"}
-        >
-          <Flex flexDirection={"column"} alignItems={"center"} gap={"5px"}>
-            <Text>Destination Contract Call</Text>
-            <Divider />
-            <Flex gap={"10px"}>
-              <GetOwnerBTN sacAddress={sacAddress} />
-              <GetMsgBTN contractAddress={targetAddr} />
-            </Flex>
-          </Flex>
-        </Box>
+        <DestinationContractActions
+          sacAddress={sacAddress}
+          targetAddr={targetAddr}
+        />
 
-        <Tooltip
-          hasArrow
-          placement="right-end"
-          label={TOOLTIP_CUSTOM_CALL}
-          bg="purple.600"
-        >
-          <Box
-            width={"700px"}
-            alignSelf={"flex-start"}
-            borderWidth="5px"
-            borderRadius="lg"
-            padding={"5px"}
-            borderColor={"purple.300"}
-          >
-            <Flex flexDirection={"column"} alignItems={"center"} gap={"5px"}>
-              <Text>커스텀 콜 데이터</Text>
-              <Divider />
-              <Flex
-                gap={"10px"}
-                flexDirection={"column"}
-                alignSelf={"flex-start"}
-              >
-                <InputGroup>
-                  <InputLeftAddon width={"180px"}>
-                    Destination CA
-                  </InputLeftAddon>
-                  <Input
-                    width={"500px"}
-                    name="funcAddr"
-                    onChange={(e) => {
-                      setFuncAddr(e.target.value);
-                    }}
-                  ></Input>
-                </InputGroup>
-
-                <InputGroup>
-                  <InputLeftAddon width={"180px"}>Function Name</InputLeftAddon>
-                  <Input
-                    name="Inputs"
-                    onChange={(e) => {
-                      setFuncName(e.target.value);
-                      setFuncABI(`function ${e.target.value}(${funcInput})`);
-                    }}
-                    placeholder="ex) setMessage"
-                  ></Input>
-                </InputGroup>
-
-                <InputGroup>
-                  <InputLeftAddon width={"180px"}>
-                    Input types & names
-                  </InputLeftAddon>
-                  <Input
-                    name="Inputs"
-                    onChange={(e) => {
-                      setFuncInput(e.target.value);
-                      setFuncABI(`function ${funcName}(${e.target.value})`);
-                    }}
-                    placeholder="ex) string _msg"
-                  ></Input>
-                </InputGroup>
-
-                <label>{`function ${funcName}(${funcInput})`}</label>
-
-                <InputGroup>
-                  <InputLeftAddon width={"180px"}>Inputs</InputLeftAddon>
-                  <Input
-                    name="Inputs"
-                    onChange={(e) => {
-                      setInputs(e.target.value);
-                    }}
-                  ></Input>
-                </InputGroup>
-
-                <BTN
-                  onClickFunc={() => {
-                    signCustomCallData();
-                  }}
-                  name="Sign & Send"
-                />
-
-                <label>Custom callData</label>
-
-                <Input
-                  value={callData}
-                  name="callData"
-                  onChange={(e) => {
-                    setCallData(e.target.value);
-                  }}
-                ></Input>
-              </Flex>
-            </Flex>
-          </Box>
-        </Tooltip>
+        <CustomCallData
+          setFuncAddr={setFuncAddr}
+          setFuncName={setFuncName}
+          setFuncInput={setFuncInput}
+          funcName={funcName}
+          funcInput={funcInput}
+          setInputs={setInputs}
+          signCustomCallData={signCustomCallData}
+          callData={callData}
+          setCallData={setCallData}
+          setFuncABI={setFuncABI}
+        />
 
         <Box
           width={"700px"}
@@ -1133,17 +747,3 @@ function App() {
 }
 
 export default App;
-
-// {
-//   sender: '0x74dbFB665536AcE9E65b6c9ff5bE1D99AA78eEA8',
-//   nonce: '0x0',
-//   initCode: '0x',
-//   callData: '0xb61d27f60000000000000000000000006de175459de142b3bcd1b63d3e07f21da48c7c14000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000600000000000000000000000000000000000000000000000000000000000000064368b87720000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000000b746573744d736753656e6400000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000',
-//   callGasLimit: '0x581D',
-//   verificationGasLimit: '0x5FC1B',
-//   preVerificationGas: '0xB248',
-//   maxFeePerGas: '0x69A4C7232',
-//   maxPriorityFeePerGas: '0x69A4C7220',
-//   signature: '0x98c8f0d1e23ac75158cc716cec8ba02d6c4cafa8e9b6f51b34f69fe572f112ed4843fd27a88d93f6a2fe2c7c3dc12a1351d96b781ce054d6a2e4c946d195ba8c1c',
-//   paymasterAndData: '0x'
-// }
